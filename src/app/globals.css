@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    background-color: #0a0a14;
+  }
+
+  ::selection {
+    @apply bg-violet/40 text-ink;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0a0a14;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2a2a40;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3a3a55;
+  }
+
+  :focus-visible {
+    outline: 2px solid #e8b64a;
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@layer components {
+  .input {
+    @apply w-full rounded-xl border border-border bg-bg-soft px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-violet focus:outline-none;
+  }
+  .btn-primary {
+    @apply rounded-xl bg-gold px-4 py-2.5 text-center font-semibold text-bg transition hover:bg-gold-soft disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-secondary {
+    @apply rounded-xl border border-border px-4 py-2.5 text-center font-semibold text-ink transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-danger {
+    @apply rounded-xl border border-rose-500/40 px-4 py-2.5 text-center font-semibold text-rose-300 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .card {
+    @apply rounded-2xl border border-border bg-card;
+  }
+}

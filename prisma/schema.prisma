@@ -1,0 +1,89 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// SQLite has no native enum support in Prisma, so the fields below are
+// plain strings constrained at the application layer — see src/lib/types.ts
+// for the allowed value unions (Role, AccountStatus, LoginType,
+// PaymentMethod, PaymentStatus, DeliveryStatus).
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  role         String   @default("CUSTOMER")
+  createdAt    DateTime @default(now())
+  orders       Order[]
+}
+
+model GameAccount {
+  id                 String         @id @default(cuid())
+  slug               String         @unique
+  title              String
+  description        String
+  price              Int
+  discountPrice      Int?
+  rank               String
+  maxRank            String
+  server             String         @default("TH")
+  loginType          String         @default("FACEBOOK")
+  heroCount          Int
+  skinCount          Int
+  rareSkins          String
+  diamondBalance     Int            @default(0)
+  coinBalance        Int            @default(0)
+  status             String         @default("AVAILABLE")
+  credentialUsername String?
+  credentialPassword String?
+  credentialNote     String?
+  images             AccountImage[]
+  orders             Order[]
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([status])
+}
+
+model AccountImage {
+  id        String      @id @default(cuid())
+  url       String
+  position  Int         @default(0)
+  account   GameAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId String
+}
+
+model Order {
+  id             String   @id @default(cuid())
+  orderNumber    String   @unique
+  batchId        String?
+  user           User     @relation(fields: [userId], references: [id])
+  userId         String
+  account        GameAccount @relation(fields: [accountId], references: [id])
+  accountId      String
+  price          Int
+  paymentMethod  String
+  paymentStatus  String   @default("PENDING")
+  deliveryStatus String   @default("WAITING")
+  slipUrl        String?
+  buyerNote      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([batchId])
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+}

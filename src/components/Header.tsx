@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { CartBadge } from "@/components/CartBadge";
 import { SignOutButton } from "@/components/SignOutButton";
 
 export async function Header() {
@@ -28,42 +27,21 @@ export async function Header() {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Link
-            href="/cart"
-            className="relative rounded-full border border-border px-3 py-1.5 text-sm text-ink transition hover:border-gold"
-          >
-            ตะกร้า
-            <CartBadge />
-          </Link>
-
-          {session?.user ? (
-            <div className="flex items-center gap-2">
-              {session.user.role === "ADMIN" && (
-                <Link
-                  href="/admin"
-                  className="rounded-full bg-violet px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
-                >
-                  แอดมิน
-                </Link>
-              )}
-              <Link
-                href="/account"
-                className="hidden rounded-full border border-border px-3 py-1.5 text-sm text-ink transition hover:border-gold sm:inline-block"
-              >
-                {session.user.name}
-              </Link>
-              <SignOutButton />
-            </div>
-          ) : (
+        {session?.user?.role === "ADMIN" ? (
+          <div className="flex items-center gap-2">
             <Link
-              href="/login"
-              className="rounded-full bg-gold px-4 py-1.5 text-sm font-semibold text-bg transition hover:bg-gold-soft"
+              href="/admin"
+              className="rounded-full bg-violet px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
             >
-              เข้าสู่ระบบ
+              แอดมิน
             </Link>
-          )}
-        </div>
+            <SignOutButton />
+          </div>
+        ) : (
+          <Link href="/accounts" className="btn-primary hidden sm:inline-block">
+            ดูไอดีทั้งหมด
+          </Link>
+        )}
       </div>
     </header>
   );

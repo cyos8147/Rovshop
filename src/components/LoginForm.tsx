@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
@@ -58,12 +57,6 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
       <button type="submit" disabled={pending} className="btn-primary w-full">
         {pending ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
       </button>
-      <p className="text-center text-sm text-ink-muted">
-        ยังไม่มีบัญชี?{" "}
-        <Link href="/register" className="text-gold hover:underline">
-          สมัครสมาชิก
-        </Link>
-      </p>
     </form>
   );
 }

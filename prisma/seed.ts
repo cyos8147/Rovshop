@@ -193,7 +193,7 @@ const accountSeeds = [
 const testimonialSeeds = [
   { name: "โบ๊ท", rating: 5, comment: "ได้ไอดีตรงตามที่แจ้งทุกอย่าง แอดมินส่งไวมาก ประทับใจครับ" },
   { name: "มายด์", rating: 5, comment: "ซื้อไอดีมาสเตอร์มา สกินครบตามรูปเป๊ะ ร้านนี้ไว้ใจได้" },
-  { name: "ปลื้ม", rating: 4, comment: "บริการดี ตอบแชทไว แต่รอตรวจสลิปนานนิดนึงช่วงดึก" },
+  { name: "ปลื้ม", rating: 4, comment: "บริการดี ตอบแชทไว แต่รอคิวตอบช่วงดึกนานนิดนึง" },
   { name: "ต้นหอม", rating: 5, comment: "ซื้อไอดีราคาประหยัดไปลองเล่น คุ้มค่ามากครับ แนะนำเลย" },
   { name: "แนน", rating: 5, comment: "แอดมินใจดี ให้คำแนะนำการเปลี่ยนรหัสผ่านหลังรับไอดีอย่างละเอียด" },
 ] as const;
@@ -214,37 +214,11 @@ async function main() {
     },
   });
 
-  const customer1 = await prisma.user.upsert({
-    where: { email: "customer1@example.com" },
-    update: {},
-    create: {
-      name: "สมชาย ใจดี",
-      email: "customer1@example.com",
-      phone: "0891234567",
-      passwordHash: await bcrypt.hash("Customer1234!", 10),
-      role: "CUSTOMER",
-    },
-  });
-
-  const customer2 = await prisma.user.upsert({
-    where: { email: "customer2@example.com" },
-    update: {},
-    create: {
-      name: "สมหญิง รักเกม",
-      email: "customer2@example.com",
-      phone: "0899876543",
-      passwordHash: await bcrypt.hash("Customer1234!", 10),
-      role: "CUSTOMER",
-    },
-  });
-
-  console.log(`Seeded users: admin=${admin.email}, customers=${customer1.email}, ${customer2.email}`);
-
-  const createdAccounts: Record<string, string> = {};
+  console.log(`Seeded admin user: ${admin.email}`);
 
   for (const seed of accountSeeds) {
     const { hue, ...data } = seed;
-    const account = await prisma.gameAccount.upsert({
+    await prisma.gameAccount.upsert({
       where: { slug: seed.slug },
       update: {},
       create: {
@@ -252,51 +226,24 @@ async function main() {
         credentialUsername: `rovshop_${seed.slug}@example.com`,
         credentialPassword: "DemoPass!2026",
         credentialNote:
-          "กรุณาเปลี่ยนรหัสผ่านและผูกบัญชี Facebook/Google ของคุณเองทันทีหลังได้รับไอดี",
+          "หมายเหตุภายใน (ผู้ซื้อไม่เห็น): เปลี่ยนรหัสผ่านและส่งข้อมูลนี้ให้ลูกค้าเองทางแชทหลังตกลงราคา/รับเงินแล้ว",
         images: { create: shots(seed.title, hue) },
       },
     });
-    createdAccounts[seed.slug] = account.id;
   }
 
   console.log(`Seeded ${accountSeeds.length} game accounts`);
 
-  const soldAccountId = createdAccounts["rov-silver-trial"];
-  const reservedAccountId = createdAccounts["rov-platinum-collector"];
-
-  await prisma.order.upsert({
-    where: { orderNumber: "RS20260201-DEMO01" },
+  await prisma.settings.upsert({
+    where: { id: "main" },
     update: {},
     create: {
-      orderNumber: "RS20260201-DEMO01",
-      batchId: "RS20260201-DEMO01",
-      userId: customer1.id,
-      accountId: soldAccountId,
-      price: 190,
-      paymentMethod: "BANK_TRANSFER",
-      paymentStatus: "PAID",
-      deliveryStatus: "DELIVERED",
-      buyerNote: "รบกวนส่งไอดีทางอีเมลครับ",
+      id: "main",
+      contactUrl: "https://www.facebook.com/your-facebook-profile",
     },
   });
 
-  await prisma.order.upsert({
-    where: { orderNumber: "RS20260305-DEMO02" },
-    update: {},
-    create: {
-      orderNumber: "RS20260305-DEMO02",
-      batchId: "RS20260305-DEMO02",
-      userId: customer2.id,
-      accountId: reservedAccountId,
-      price: 1990,
-      paymentMethod: "PROMPTPAY",
-      paymentStatus: "AWAITING_VERIFICATION",
-      deliveryStatus: "WAITING",
-      buyerNote: "โอนแล้วแนบสลิปในระบบเรียบร้อยครับ รบกวนตรวจสอบด้วยครับ",
-    },
-  });
-
-  console.log("Seeded 2 demo orders");
+  console.log("Seeded settings (แก้ไขลิงก์ Facebook จริงได้ที่หน้า /admin/settings)");
 
   for (const testimonial of testimonialSeeds) {
     const existing = await prisma.testimonial.findFirst({

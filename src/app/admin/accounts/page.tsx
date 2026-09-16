@@ -13,7 +13,6 @@ export default async function AdminAccountsPage() {
     orderBy: { createdAt: "desc" },
     include: {
       images: { orderBy: { position: "asc" }, take: 1 },
-      _count: { select: { orders: true } },
     },
   });
 
@@ -38,8 +37,7 @@ export default async function AdminAccountsPage() {
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium text-ink">{account.title}</p>
               <p className="text-xs text-ink-muted">
-                แรงค์{account.rank} · {formatTHB(account.discountPrice ?? account.price)} · สั่งซื้อแล้ว{" "}
-                {account._count.orders} ครั้ง
+                แรงค์{account.rank} · {formatTHB(account.discountPrice ?? account.price)}
               </p>
             </div>
             <StatusBadge status={account.status as AccountStatus} />

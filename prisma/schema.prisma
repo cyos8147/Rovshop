@@ -9,8 +9,7 @@ generator client {
 
 // SQLite has no native enum support in Prisma, so the fields below are
 // plain strings constrained at the application layer — see src/lib/types.ts
-// for the allowed value unions (Role, AccountStatus, LoginType,
-// PaymentMethod, PaymentStatus, DeliveryStatus).
+// for the allowed value unions (Role, AccountStatus, LoginType).
 
 model User {
   id           String   @id @default(cuid())
@@ -18,9 +17,8 @@ model User {
   email        String   @unique
   phone        String?
   passwordHash String
-  role         String   @default("CUSTOMER")
+  role         String   @default("ADMIN")
   createdAt    DateTime @default(now())
-  orders       Order[]
 }
 
 model GameAccount {
@@ -44,7 +42,6 @@ model GameAccount {
   credentialPassword String?
   credentialNote     String?
   images             AccountImage[]
-  orders             Order[]
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
@@ -59,31 +56,17 @@ model AccountImage {
   accountId String
 }
 
-model Order {
-  id             String   @id @default(cuid())
-  orderNumber    String   @unique
-  batchId        String?
-  user           User     @relation(fields: [userId], references: [id])
-  userId         String
-  account        GameAccount @relation(fields: [accountId], references: [id])
-  accountId      String
-  price          Int
-  paymentMethod  String
-  paymentStatus  String   @default("PENDING")
-  deliveryStatus String   @default("WAITING")
-  slipUrl        String?
-  buyerNote      String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@index([userId])
-  @@index([batchId])
-}
-
 model Testimonial {
   id        String   @id @default(cuid())
   name      String
   rating    Int
   comment   String
   createdAt DateTime @default(now())
+}
+
+// Single-row site settings. Always read/written with id = "main".
+model Settings {
+  id         String   @id
+  contactUrl String   @default("https://www.facebook.com/")
+  updatedAt  DateTime @updatedAt
 }

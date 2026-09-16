@@ -165,13 +165,9 @@ export async function updateAccountAction(
 export async function deleteAccountAction(accountId: string) {
   await requireAdmin();
 
-  const orderCount = await prisma.order.count({ where: { accountId } });
-  if (orderCount > 0) {
-    throw new Error("ไม่สามารถลบไอดีที่มีประวัติคำสั่งซื้อแล้วได้ กรุณาเปลี่ยนสถานะเป็นขายแล้วแทน");
-  }
-
   await prisma.gameAccount.delete({ where: { id: accountId } });
 
   revalidatePath("/admin/accounts");
   revalidatePath("/accounts");
+  redirect("/admin/accounts");
 }

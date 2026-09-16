@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { formatTHB } from "@/lib/format";
 import { Gallery } from "@/components/Gallery";
-import { AddToCartButton } from "@/components/AddToCartButton";
 import { StatusBadge } from "@/components/StatusBadge";
+import { getSettings } from "@/lib/settings";
 import { LOGIN_TYPE_LABELS, type LoginType } from "@/lib/types";
 
 async function getAccount(slug: string) {
@@ -31,11 +31,12 @@ export default async function AccountDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const account = await getAccount(slug);
+  const [account, settings] = await Promise.all([getAccount(slug), getSettings()]);
   if (!account) notFound();
 
   const finalPrice = account.discountPrice ?? account.price;
   const images = account.images.map((image) => image.url);
+  const available = account.status === "AVAILABLE";
 
   const specs = [
     { label: "แรงค์ปัจจุบัน", value: account.rank },
@@ -81,19 +82,26 @@ export default async function AccountDetailPage({
           </dl>
 
           <div className="mt-6">
-            <AddToCartButton
-              available={account.status === "AVAILABLE"}
-              account={{
-                id: account.id,
-                slug: account.slug,
-                title: account.title,
-                price: finalPrice,
-                image: images[0] ?? `/api/placeholder?text=${encodeURIComponent(account.title)}&hue=260`,
-              }}
-            />
+            {available ? (
+              <a
+                href={settings.contactUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full rounded-xl bg-gold px-6 py-3 text-center font-semibold text-bg transition hover:bg-gold-soft"
+              >
+                แชทกับแอดมินเพื่อสั่งซื้อ
+              </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="w-full cursor-not-allowed rounded-xl bg-bg-soft px-6 py-3 font-semibold text-ink-muted"
+              >
+                ไอดีนี้ไม่พร้อมขายแล้ว
+              </button>
+            )}
             <p className="mt-3 text-xs text-ink-muted">
-              ข้อมูลบัญชี (ยูสเซอร์/รหัสผ่าน) จะแสดงให้หลังจากยืนยันการชำระเงินแล้วเท่านั้น
-              กรุณาเปลี่ยนรหัสผ่านและผูกบัญชีของคุณเองทันทีหลังได้รับไอดี
+              กดปุ่มด้านบนเพื่อแชทกับแอดมินโดยตรง แจ้งชื่อไอดี &quot;{account.title}&quot; เพื่อสอบถามและนัดโอน-รับไอดีได้เลย
             </p>
           </div>
         </div>

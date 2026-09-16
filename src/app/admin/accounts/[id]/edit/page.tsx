@@ -56,7 +56,7 @@ export default async function EditAccountPage({ params }: { params: Promise<{ id
         <div className="card h-fit p-5">
           <h2 className="font-semibold text-ink">โซนอันตราย</h2>
           <p className="mt-1 text-xs text-ink-muted">
-            ลบได้เฉพาะไอดีที่ยังไม่เคยมีคำสั่งซื้อเท่านั้น หากมีประวัติคำสั่งซื้อ ให้เปลี่ยนสถานะเป็น &quot;ขายแล้ว&quot; แทน
+            การลบจะลบไอดีนี้ออกถาวร กู้คืนไม่ได้ หากแค่ขายไปแล้วให้เปลี่ยน &quot;สถานะ&quot; เป็น &quot;ขายแล้ว&quot; ด้านบนแทนการลบ
           </p>
           <div className="mt-3">
             <DeleteAccountButton accountId={account.id} />

@@ -190,8 +190,10 @@ export function AccountForm({ action, defaultValues, existingImages = [], submit
       </div>
 
       <div className="card space-y-4 p-5">
-        <h2 className="font-semibold text-ink">ข้อมูลบัญชีสำหรับส่งมอบ</h2>
-        <p className="text-xs text-ink-muted">จะแสดงให้ลูกค้าเห็นก็ต่อเมื่อคำสั่งซื้อถูกยืนยันว่าชำระเงินแล้วเท่านั้น</p>
+        <h2 className="font-semibold text-ink">ข้อมูลบัญชี (จดไว้ใช้เองเท่านั้น)</h2>
+        <p className="text-xs text-ink-muted">
+          เป็นที่จดบันทึกสำหรับแอดมินเท่านั้น เว็บจะไม่แสดงข้อมูลนี้ให้ลูกค้าเห็นเด็ดขาด — ส่งให้ลูกค้าเองทางแชทหลังรับเงินแล้ว
+        </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm text-ink-muted">ยูสเซอร์ / อีเมลล็อกอิน</label>

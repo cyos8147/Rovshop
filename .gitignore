@@ -10,15 +10,11 @@ build/
 .env
 .env*.local
 
-# prisma / database
+# prisma
 prisma/dev.db
 prisma/dev.db-journal
 *.db
 *.db-journal
-
-# uploads (user-generated at runtime)
-public/uploads/*
-!public/uploads/.gitkeep
 
 # misc
 .DS_Store

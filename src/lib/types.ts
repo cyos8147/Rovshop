@@ -1,6 +1,7 @@
-// SQLite (via Prisma) has no native enum support, so these string unions are
-// the single source of truth for the allowed values of each "enum-like"
-// column, shared between server actions, forms, and seed data.
+// Kept as plain strings rather than native Postgres enums so new values
+// (e.g. an extra rank tier) never need a migration. These unions are the
+// single source of truth for each "enum-like" column, shared between
+// server actions, forms, and seed data.
 
 export const ROLES = ["ADMIN"] as const;
 export type Role = (typeof ROLES)[number];

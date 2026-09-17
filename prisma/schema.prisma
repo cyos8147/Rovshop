@@ -1,15 +1,17 @@
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
 }
 
-// SQLite has no native enum support in Prisma, so the fields below are
-// plain strings constrained at the application layer — see src/lib/types.ts
-// for the allowed value unions (Role, AccountStatus, LoginType).
+// Kept as plain strings (not native Postgres enums) so the app-level unions
+// in src/lib/types.ts stay the single source of truth and new values (e.g.
+// an extra rank tier) never need a migration — see that file for the
+// allowed value unions (Role, AccountStatus, LoginType).
 
 model User {
   id           String   @id @default(cuid())

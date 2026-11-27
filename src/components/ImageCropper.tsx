@@ -256,11 +256,34 @@ export const CropSurface = forwardRef<
   );
 });
 
+// Natural size of a picture already on the site (e.g. a skin that has an
+// image), so new crops can match it. null while loading or when there is none.
+export function useImageSize(url: string | null | undefined) {
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (!url) {
+      setSize(null);
+      return;
+    }
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled && img.naturalWidth > 0) setSize({ w: img.naturalWidth, h: img.naturalHeight });
+    };
+    img.src = url;
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+  return size;
+}
+
 // Modal around the surface: zoom, optional ratio lock, confirm / cancel.
 export function ImageCropper({
   file,
-  aspect = 4 / 5,
-  outWidth = 480,
+  aspect: aspectProp = 0.7,
+  outWidth: outWidthProp = 480,
+  refSize = null,
   mode = "fixed",
   title = "ตัดรูป",
   onCancel,
@@ -269,6 +292,9 @@ export function ImageCropper({
   file: File;
   aspect?: number;
   outWidth?: number;
+  // Size of a skin picture that already exists. The box can be locked to its
+  // shape and the result is saved at that same size.
+  refSize?: { w: number; h: number } | null;
   // "fixed": the box always keeps `aspect`. "free": starts free, with a
   // checkbox to lock it to `aspect`.
   mode?: "fixed" | "free";
@@ -277,12 +303,14 @@ export function ImageCropper({
   onDone: (result: CropResult) => void;
 }) {
   const surface = useRef<CropSurfaceHandle>(null);
-  const [lock, setLock] = useState(mode === "fixed");
+  const aspect = refSize ? refSize.w / refSize.h : aspectProp;
+  const outWidth = refSize ? Math.min(900, Math.max(200, refSize.w)) : outWidthProp;
+  const [lock, setLock] = useState(mode === "fixed" || Boolean(refSize));
   const [zoom, setZoom] = useState(1);
   const [status, setStatus] = useState<{ ready: boolean; error: string | null }>({ ready: false, error: null });
   const [busy, setBusy] = useState(false);
 
-  const ratioLabel = Math.abs(aspect - 4 / 5) < 0.01 ? "4:5" : Math.abs(aspect - 1.8) < 0.01 ? "1080:600" : aspect.toFixed(2);
+  const ratioLabel = Math.abs(aspect - 1.8) < 0.01 ? "1080:600" : aspect.toFixed(2);
 
   const confirm = async () => {
     setBusy(true);
@@ -335,12 +363,12 @@ export function ImageCropper({
               className="w-40 accent-[#e8b64a]"
             />
           </label>
-          {mode === "free" ? (
+          {mode === "free" && refSize ? (
             <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
               <input type="checkbox" checked={lock} onChange={(event) => setLock(event.target.checked)} />
-              ล็อกสัดส่วน {ratioLabel}
+              ขนาดเท่ารูปสกินที่ใส่แล้ว ({refSize.w}×{refSize.h})
             </label>
-          ) : (
+          ) : mode === "free" ? null : (
             <span className="text-xs text-ink-muted">สัดส่วนคงที่ {ratioLabel}</span>
           )}
         </div>

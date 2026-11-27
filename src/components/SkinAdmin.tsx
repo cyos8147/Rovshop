@@ -125,10 +125,12 @@ export function ImportCatalogForm({ action }: { action: FormAction }) {
 
 export function SkinRow({
   skin,
+  refUrl,
   updateAction,
   deleteAction,
 }: {
   skin: { id: string; name: string; tier: string; imageUrl: string | null };
+  refUrl?: string | null;
   updateAction: FormAction;
   deleteAction: () => Promise<void>;
 }) {
@@ -148,7 +150,7 @@ export function SkinRow({
         <input name="name" required maxLength={80} defaultValue={skin.name} className="input min-w-40 flex-1" />
         {/* Keep any tier an older entry already has; it's no longer edited here. */}
         <input type="hidden" name="tier" value={skin.tier} />
-        <CroppedImageInput label={skin.imageUrl ? "เปลี่ยนรูป" : "ใส่รูป"} compact />
+        <CroppedImageInput label={skin.imageUrl ? "เปลี่ยนรูป" : "ใส่รูป"} compact refUrl={refUrl ?? null} />
         <button type="submit" disabled={pending} className="btn-secondary px-3 py-2 text-sm">
           {pending ? "..." : "บันทึก"}
         </button>

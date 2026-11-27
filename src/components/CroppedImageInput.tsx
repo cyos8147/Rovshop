@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ImageCropper } from "@/components/ImageCropper";
+import { ImageCropper, useImageSize } from "@/components/ImageCropper";
 
 // Drop-in replacement for <input type="file" name="image"> inside a form:
 // the admin picks a photo/screenshot, crops it to the skin-tile shape, and
@@ -11,13 +11,17 @@ export function CroppedImageInput({
   name = "image",
   label = "เลือกรูป",
   compact = false,
-  aspect = 4 / 5,
+  aspect,
+  refUrl = null,
 }: {
   name?: string;
   label?: string;
   compact?: boolean;
   aspect?: number;
+  // A skin picture that is already on the site: new crops match its size.
+  refUrl?: string | null;
 }) {
+  const refSize = useImageSize(refUrl);
   const chooserRef = useRef<HTMLInputElement>(null);
   const outRef = useRef<HTMLInputElement>(null);
   const [picked, setPicked] = useState<File | null>(null);
@@ -82,6 +86,7 @@ export function CroppedImageInput({
           file={picked}
           mode="free"
           aspect={aspect}
+          refSize={refSize}
           onCancel={() => setPicked(null)}
           onDone={({ blob, dataUrl }) => {
             const file = new File([blob], "skin.jpg", { type: "image/jpeg" });

@@ -58,15 +58,14 @@ export function AddSkinForm({ action }: { action: FormAction }) {
 
   return (
     <form ref={ref} action={formAction} className="card space-y-4 p-5">
-      <h2 className="font-semibold text-ink">เพิ่มสกินทีละรายการ (พร้อมรูป)</h2>
+      <div>
+        <h2 className="font-semibold text-ink">เพิ่มสกินทีละรายการ</h2>
+        <p className="mt-1 text-xs text-ink-muted">ใส่แค่ชื่อก่อน แล้วค่อยใส่รูปให้สกินที่เพิ่มแล้วในรายการด้านล่าง</p>
+      </div>
       <FormMessage state={state} />
       <div>
         <label className="mb-1 block text-sm text-ink-muted">ชื่อสกิน</label>
         <input name="name" required maxLength={80} className="input" />
-      </div>
-      <div>
-        <label className="mb-1 block text-sm text-ink-muted">รูปสกิน (เลือกรูปหรือภาพแคปหน้าจอ แล้วลาก/ซูมครอปเฉพาะช่องสกิน)</label>
-        <CroppedImageInput label="เลือกรูปสกิน" />
       </div>
       <button type="submit" disabled={pending} className="btn-primary">
         {pending ? "กำลังเพิ่ม..." : "เพิ่มสกิน"}

@@ -130,15 +130,10 @@ export async function createSkinAction(
   const parsed = skinSchema.safeParse({ name: formData.get("name"), tier: formData.get("tier") ?? undefined });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง" };
 
-  let imageUrl: string | null;
+  // A skin is created with its name only. Its picture is added afterwards,
+  // on the skin that now exists (row "ใส่รูป" or the screenshot cutter).
   try {
-    imageUrl = await optionalImage(formData);
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "อัปโหลดรูปภาพไม่สำเร็จ" };
-  }
-
-  try {
-    await prisma.skin.create({ data: { ...parsed.data, tier: parsed.data.tier ?? "NORMAL", imageUrl, heroId } });
+    await prisma.skin.create({ data: { ...parsed.data, tier: parsed.data.tier ?? "NORMAL", heroId } });
   } catch (error) {
     if (isUniqueViolation(error)) return { error: "ฮีโร่ตัวนี้มีสกินชื่อนี้อยู่แล้ว" };
     throw error;

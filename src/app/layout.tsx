@@ -15,8 +15,8 @@ const kanit = Kanit({
 
 export const metadata: Metadata = {
   title: {
-    default: "RoVShop — ซื้อขายไอดีเกม RoV ปลอดภัย ส่งไว",
-    template: "%s | RoVShop",
+    default: "OSCAR Gaming images — ซื้อขายไอดีเกม RoV และทำป้ายขายไอดี",
+    template: "%s | OSCAR Gaming images",
   },
   description:
     "ร้านขายไอดีเกม RoV (Arena of Valor) แรงค์สูง สกินหายาก ราคาคุ้มค่า ตรวจสอบสเปกได้ก่อนซื้อ",

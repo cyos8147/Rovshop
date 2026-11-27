@@ -60,7 +60,7 @@ export default async function SortPage({
         key={accountSlug ? String(accountSlug) : "default"}
         heroes={heroes}
         initialInfo={initialInfo}
-        watermark="ทำป้ายฟรีที่ RoVShop"
+        watermark={{ text: "ทำป้ายฟรีที่", brand: "OSCAR", suffix: "Gaming images" }}
       />
     </div>
   );

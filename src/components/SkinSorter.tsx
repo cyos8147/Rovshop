@@ -7,6 +7,7 @@ import {
   type BannerInfo,
   type BannerSkin,
   type BannerThemeKey,
+  type BannerWatermark,
 } from "@/lib/banner";
 import {
   HERO_ROLES,
@@ -62,7 +63,7 @@ export function SkinSorter({
 }: {
   heroes: SorterHero[];
   initialInfo?: Partial<BannerInfo>;
-  watermark: string;
+  watermark: BannerWatermark;
 }) {
   // Flat lookup of every skin with its hero name attached.
   const skinById = useMemo(() => {
@@ -484,7 +485,7 @@ function BannerStep({
   showNames: boolean;
   setShowNames: (value: boolean) => void;
   skins: BannerSkin[];
-  watermark: string;
+  watermark: BannerWatermark;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [rendering, setRendering] = useState(false);

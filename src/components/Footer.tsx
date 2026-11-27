@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSettings } from "@/lib/settings";
+import { Logo } from "@/components/Logo";
 
 export async function Footer() {
   const settings = await getSettings();
@@ -9,7 +10,7 @@ export async function Footer() {
       <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-ink-muted">
         <div className="grid gap-8 md:grid-cols-3">
           <div>
-            <div className="text-lg font-bold text-ink">RoVShop</div>
+            <Logo />
             <p className="mt-2 max-w-xs">
               ร้านขายไอดีเกม RoV แรงค์สูง สกินหายาก ตรวจสอบสเปกได้ทุกรายการก่อนตัดสินใจซื้อ
             </p>
@@ -45,7 +46,7 @@ export async function Footer() {
           </div>
         </div>
         <div className="mt-8 flex flex-col items-center gap-2 border-t border-border pt-6 text-center text-xs">
-          <p>© {new Date().getFullYear()} RoVShop</p>
+          <p>© {new Date().getFullYear()} Oscar Gaming images</p>
           <Link href="/login" className="text-ink-muted/70 transition hover:text-gold">
             สำหรับแอดมิน
           </Link>

@@ -72,8 +72,10 @@ export type BannerOptions = {
   theme: BannerThemeKey;
   showNames: boolean;
   fontFamily: string;
-  watermark: string;
+  watermark: BannerWatermark | null;
 };
+
+export type BannerWatermark = { text: string; brand: string; suffix: string };
 
 const WIDTH = 1080;
 const PAD = 48;
@@ -407,10 +409,25 @@ export async function renderBanner(canvas: HTMLCanvasElement, options: BannerOpt
   }
 
   if (watermark) {
-    ctx.font = `400 20px ${font}`;
-    ctx.fillStyle = theme.muted;
-    ctx.textAlign = "right";
-    ctx.fillText(watermark, WIDTH - PAD, height - 28);
+    // Drawn right-aligned, piece by piece: "ทำป้ายฟรีที่ OSCAR Gaming images"
+    // with OSCAR bold in the accent colour.
+    const parts: [string, string, string][] = [
+      [`${watermark.text} `, `400 20px ${font}`, theme.muted],
+      [watermark.brand, `900 26px ${font}`, theme.accent],
+      [` ${watermark.suffix}`, `400 16px ${font}`, theme.muted],
+    ];
+    const widths = parts.map(([text, f]) => {
+      ctx.font = f;
+      return ctx.measureText(text).width;
+    });
+    let wx = WIDTH - PAD - widths.reduce((a, b) => a + b, 0);
     ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    parts.forEach(([text, f, color], i) => {
+      ctx.font = f;
+      ctx.fillStyle = color;
+      ctx.fillText(text, wx, height - 28);
+      wx += widths[i];
+    });
   }
 }

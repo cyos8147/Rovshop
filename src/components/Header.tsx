@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { SignOutButton } from "@/components/SignOutButton";
+import { Logo } from "@/components/Logo";
 
 export async function Header() {
   const session = await getSession();
@@ -8,11 +9,8 @@ export async function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-bg/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <Link href="/" className="flex items-center gap-1.5 text-xl font-bold tracking-wide">
-          <span className="bg-gradient-to-r from-gold to-violet bg-clip-text text-transparent">
-            RoV
-          </span>
-          <span className="text-ink">Shop</span>
+        <Link href="/" aria-label="Oscar Gaming images — หน้าแรก">
+          <Logo />
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm text-ink-muted md:flex">

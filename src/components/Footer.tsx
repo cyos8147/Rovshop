@@ -34,8 +34,18 @@ export async function Footer() {
                 </a>
               </li>
               <li>
+                <a href="/terms" className="transition hover:text-gold">
+                  เงื่อนไขการใช้บริการ
+                </a>
+              </li>
+              <li>
+                <a href="/privacy" className="transition hover:text-gold">
+                  นโยบายความเป็นส่วนตัว
+                </a>
+              </li>
+              <li>
                 <a href="/policy" className="transition hover:text-gold">
-                  นโยบายการรับประกัน
+                  นโยบายร้านขายไอดี
                 </a>
               </li>
             </ul>

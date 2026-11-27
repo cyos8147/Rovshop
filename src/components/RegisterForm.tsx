@@ -61,6 +61,16 @@ export function RegisterForm({ callbackUrl, bonusText }: { callbackUrl: string; 
       <button type="submit" disabled={pending || signingIn} className="btn-primary w-full">
         {pending || signingIn ? "กำลังสมัคร..." : bonusText ? `สมัครและรับฟรี ${bonusText} คอยน์` : "สมัครสมาชิก"}
       </button>
+      <p className="text-center text-xs text-ink-muted">
+        การสมัครถือว่ายอมรับ{" "}
+        <Link href="/terms" className="text-gold hover:underline">
+          เงื่อนไขการใช้บริการ
+        </Link>{" "}
+        และ{" "}
+        <Link href="/privacy" className="text-gold hover:underline">
+          นโยบายความเป็นส่วนตัว
+        </Link>
+      </p>
       <p className="text-center text-sm text-ink-muted">
         มีบัญชีแล้ว?{" "}
         <Link href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-gold hover:underline">

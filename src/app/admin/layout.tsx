@@ -50,6 +50,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             >
               ตั้งค่าร้าน
             </Link>
+            <Link
+              href="/password"
+              className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
+            >
+              เปลี่ยนรหัสผ่าน
+            </Link>
           </nav>
         </aside>
         <div className="min-w-0">{children}</div>

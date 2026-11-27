@@ -56,7 +56,12 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-ink">บัญชีของฉัน</h1>
-          <p className="mt-1 truncate text-sm text-ink-muted">{user.email}</p>
+          <p className="mt-1 truncate text-sm text-ink-muted">
+            {user.email} ·{" "}
+            <Link href="/password" className="text-gold hover:underline">
+              เปลี่ยนรหัสผ่าน
+            </Link>
+          </p>
         </div>
         <SignOutButton />
       </div>
@@ -99,7 +104,12 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       <div className="mt-6 grid gap-6 md:grid-cols-2">
         <div className="card p-5">
           <h2 className="font-semibold text-ink">เติมคอยน์</h2>
-          <p className="mt-1 text-sm text-ink-muted">1 บาท = 1 คอยน์ · ไม่มีรายเดือน คอยน์ไม่มีวันหมดอายุ</p>
+          <p className="mt-1 text-sm text-ink-muted">
+            1 บาท = 1 คอยน์ · คอยน์ไม่มีวันหมดอายุ ·{" "}
+            <Link href="/terms" className="text-gold hover:underline">
+              เงื่อนไขการเติมและการคืนเงิน
+            </Link>
+          </p>
           <div className="mt-4 grid grid-cols-4 gap-2">
             {presets.map((p) => (
               <Link

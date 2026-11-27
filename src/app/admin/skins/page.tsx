@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { createHeroAction, importCatalogAction } from "@/lib/actions/skins";
-import { HeroForm, ImportCatalogForm } from "@/components/SkinAdmin";
+import { addHeroSkinAction, importCatalogAction } from "@/lib/actions/skins";
+import { AddHeroSkinForm, ImportCatalogForm } from "@/components/SkinAdmin";
 
 export const metadata: Metadata = { title: "คลังสกิน" };
 
@@ -69,12 +69,14 @@ export default async function AdminSkinsPage({ searchParams }: { searchParams: P
         </p>
       ) : null}
 
-      <ImportCatalogForm action={importCatalogAction} />
+      <AddHeroSkinForm action={addHeroSkinAction} />
 
-      <div>
-        <h2 className="mb-3 font-semibold text-ink">เพิ่มฮีโร่ใหม่ทีละตัว</h2>
-        <HeroForm action={createHeroAction} submitLabel="เพิ่มฮีโร่" />
-      </div>
+      <details className="text-sm">
+        <summary className="cursor-pointer text-ink-muted hover:text-gold">วางรายชื่อหลายสกินพร้อมกัน</summary>
+        <div className="mt-3">
+          <ImportCatalogForm action={importCatalogAction} />
+        </div>
+      </details>
 
       <div className="grid gap-2 sm:grid-cols-2">
         {heroes.map((hero) => (

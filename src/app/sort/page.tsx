@@ -17,7 +17,7 @@ export default async function SortPage() {
         id: true,
         name: true,
         role: true,
-        skins: { select: { id: true, name: true, tier: true, imageUrl: true } },
+        skins: { select: { id: true, name: true, imageUrl: true } },
       },
     }),
     getWallet(),
@@ -33,7 +33,7 @@ export default async function SortPage() {
           เรียงสกิน <span className="text-gold">ทำป้ายขายไอดี</span>
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
-          เลือกสกินที่มี → จัดเรียง → ได้ภาพเดียวพร้อมโพสต์ · จัดและดูตัวอย่างฟรี จ่ายตอนดาวน์โหลด ·{" "}
+          เลือกสกิน → พื้นหลัง → ข้อมูลไอดี → ชำระเงิน ได้ภาพเดียวพร้อมโพสต์ · จัดและดูตัวอย่างฟรี จ่ายตอนดาวน์โหลด ·{" "}
           {heroes.length} ฮีโร่ · {skinCount.toLocaleString("th-TH")} สกินในคลัง
         </p>
       </div>

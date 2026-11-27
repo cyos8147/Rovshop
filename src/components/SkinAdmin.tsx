@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { CroppedImageInput } from "@/components/CroppedImageInput";
 import type { SkinFormState } from "@/lib/actions/skins";
 
@@ -27,40 +27,61 @@ function useResetOnSuccess(state: SkinFormState) {
   return ref;
 }
 
-export function HeroForm({
-  action,
-  defaultName,
-  submitLabel,
-}: {
-  action: FormAction;
-  defaultName?: string;
-  submitLabel: string;
-}) {
+// The single add form on /admin/skins: hero name + skin name. The hero name
+// is kept after a save so several skins of one hero can be typed in a row.
+export function AddHeroSkinForm({ action }: { action: FormAction }) {
   const [state, formAction, pending] = useActionState(action, initialState);
+  const skinRef = useRef<HTMLInputElement>(null);
+  // React clears uncontrolled fields after a form action, so the hero name is
+  // held in state to survive it and be reused for the next skin.
+  const [hero, setHero] = useState("");
+  useEffect(() => {
+    if (state.success) skinRef.current?.focus();
+  }, [state]);
 
   return (
     <form action={formAction} className="card space-y-4 p-5">
-      <FormMessage state={state} />
       <div>
-        <label className="mb-1 block text-sm text-ink-muted">ชื่อฮีโร่</label>
-        <input name="name" required maxLength={60} defaultValue={defaultName} className="input" />
+        <h2 className="font-semibold text-ink">เพิ่มชื่อฮีโร่และชื่อสกิน</h2>
+        <p className="mt-1 text-xs text-ink-muted">
+          ใส่แค่ชื่อ ฮีโร่ที่ยังไม่มีจะถูกสร้างให้เอง แล้วค่อยไปใส่รูปที่หน้าฮีโร่
+        </p>
+      </div>
+      <FormMessage state={state} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-sm text-ink-muted">ชื่อฮีโร่</label>
+          <input
+            name="hero"
+            required
+            maxLength={60}
+            value={hero}
+            onChange={(event) => setHero(event.target.value)}
+            className="input"
+            placeholder="Volkath"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-ink-muted">ชื่อสกิน</label>
+          <input ref={skinRef} name="skin" required maxLength={80} className="input" placeholder="Preying Umbra" />
+        </div>
       </div>
       <button type="submit" disabled={pending} className="btn-primary">
-        {pending ? "กำลังบันทึก..." : submitLabel}
+        {pending ? "กำลังเพิ่ม..." : "เพิ่ม"}
       </button>
     </form>
   );
 }
 
-export function AddSkinForm({ action }: { action: FormAction }) {
+export function AddSkinForm({ action, heroName }: { action: FormAction; heroName: string }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const ref = useResetOnSuccess(state);
 
   return (
     <form ref={ref} action={formAction} className="card space-y-4 p-5">
       <div>
-        <h2 className="font-semibold text-ink">เพิ่มสกินทีละรายการ</h2>
-        <p className="mt-1 text-xs text-ink-muted">ใส่แค่ชื่อก่อน แล้วค่อยใส่รูปให้สกินที่เพิ่มแล้วในรายการด้านล่าง</p>
+        <h2 className="font-semibold text-ink">เพิ่มชื่อสกินของ {heroName}</h2>
+        <p className="mt-1 text-xs text-ink-muted">ใส่แค่ชื่อก่อน แล้วค่อยใส่รูปให้สกินที่เพิ่มแล้วด้านล่าง</p>
       </div>
       <FormMessage state={state} />
       <div>
@@ -69,31 +90,6 @@ export function AddSkinForm({ action }: { action: FormAction }) {
       </div>
       <button type="submit" disabled={pending} className="btn-primary">
         {pending ? "กำลังเพิ่ม..." : "เพิ่มสกิน"}
-      </button>
-    </form>
-  );
-}
-
-export function BulkSkinForm({ action }: { action: FormAction }) {
-  const [state, formAction, pending] = useActionState(action, initialState);
-  const ref = useResetOnSuccess(state);
-
-  return (
-    <form ref={ref} action={formAction} className="card space-y-4 p-5">
-      <div>
-        <h2 className="font-semibold text-ink">เพิ่มหลายสกินพร้อมกัน (เฉพาะชื่อ)</h2>
-        <p className="mt-1 text-sm text-ink-muted">บรรทัดละ 1 สกิน (ชื่อที่มีอยู่แล้วจะถูกข้าม) ใส่รูปทีหลังได้ที่แถวของแต่ละสกิน</p>
-      </div>
-      <FormMessage state={state} />
-      <textarea
-        name="lines"
-        rows={6}
-        required
-        placeholder={"Dimension Breaker\nStar Guardian\nSummer Vibes"}
-        className="input font-mono"
-      />
-      <button type="submit" disabled={pending} className="btn-secondary">
-        {pending ? "กำลังเพิ่ม..." : "เพิ่มทั้งหมด"}
       </button>
     </form>
   );

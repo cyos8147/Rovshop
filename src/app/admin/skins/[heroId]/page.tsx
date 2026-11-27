@@ -2,15 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import {
-  bulkAddSkinsAction,
-  createSkinAction,
-  deleteHeroAction,
-  deleteSkinAction,
-  updateHeroAction,
-  updateSkinAction,
-} from "@/lib/actions/skins";
-import { AddSkinForm, BulkSkinForm, DeleteHeroButton, HeroForm, SkinRow } from "@/components/SkinAdmin";
+import { createSkinAction, deleteHeroAction, deleteSkinAction, updateSkinAction } from "@/lib/actions/skins";
+import { AddSkinForm, DeleteHeroButton, SkinRow } from "@/components/SkinAdmin";
 import { ScreenshotCutter } from "@/components/ScreenshotCutter";
 
 export const metadata: Metadata = { title: "จัดการสกินของฮีโร่" };
@@ -48,22 +41,13 @@ export default async function AdminHeroSkinsPage({
         <DeleteHeroButton action={deleteHeroAction.bind(null, hero.id)} skinCount={skins.length} />
       </div>
 
-      <HeroForm
-        action={updateHeroAction.bind(null, hero.id)}
-        defaultName={hero.name}
-        submitLabel="บันทึกข้อมูลฮีโร่"
-      />
+      <AddSkinForm action={createSkinAction.bind(null, hero.id)} heroName={hero.name} />
 
       <ScreenshotCutter
         skins={[...hero.skins]
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((skin) => ({ id: skin.id, name: skin.name, hasImage: Boolean(skin.imageUrl) }))}
       />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <AddSkinForm action={createSkinAction.bind(null, hero.id)} />
-        <BulkSkinForm action={bulkAddSkinsAction.bind(null, hero.id)} />
-      </div>
 
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

@@ -7,7 +7,14 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/uploads";
-import { HERO_ROLES, SKIN_TIERS, SKIN_TIER_LABELS, type SkinTier } from "@/lib/types";
+import {
+  HERO_ROLES,
+  HERO_ROLE_LABELS,
+  SKIN_TIERS,
+  SKIN_TIER_LABELS,
+  type HeroRole,
+  type SkinTier,
+} from "@/lib/types";
 
 export type SkinFormState = {
   error?: string;
@@ -230,4 +237,73 @@ export async function deleteSkinAction(skinId: string) {
   await requireAdmin();
   const skin = await prisma.skin.delete({ where: { id: skinId } });
   revalidateSkinPages(skin.heroId);
+}
+
+// Accepts the English key or the Thai label ("MAGE", "เมจ"); null = not given.
+function parseRole(raw: string | undefined): HeroRole | null | "invalid" {
+  const value = raw?.trim();
+  if (!value) return null;
+  const upper = value.toUpperCase();
+  for (const role of HERO_ROLES) {
+    if (role === upper || HERO_ROLE_LABELS[role] === value) return role;
+  }
+  return "invalid";
+}
+
+// One line per skin: "ฮีโร่ | สกิน | ระดับ | ตำแหน่ง" (last two optional).
+// Creates any hero that doesn't exist yet (matched case-insensitively), then
+// the skins, skipping ones that already exist — so the same list can be
+// pasted again after it grows.
+export async function importCatalogAction(_prev: SkinFormState, formData: FormData): Promise<SkinFormState> {
+  await requireAdmin();
+
+  const lines = String(formData.get("lines") ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return { error: "กรุณาวางรายชื่ออย่างน้อย 1 บรรทัด" };
+  if (lines.length > 600) return { error: "นำเข้าได้ครั้งละไม่เกิน 600 บรรทัด" };
+
+  type Row = { hero: string; skin: string; tier: SkinTier; role: HeroRole | null };
+  const rows: Row[] = [];
+  for (const [index, line] of lines.entries()) {
+    const [hero, skin, rawTier, rawRole] = line.split("|").map((part) => part.trim());
+    const tier = parseTier(rawTier);
+    const role = parseRole(rawRole);
+    const heroOk = heroSchema.shape.name.safeParse(hero).success;
+    const skinOk = skinSchema.shape.name.safeParse(skin).success;
+    if (!heroOk || !skinOk || !tier || role === "invalid") {
+      return { error: `บรรทัดที่ ${index + 1} ไม่ถูกต้อง: "${line}"` };
+    }
+    rows.push({ hero, skin, tier, role });
+  }
+
+  const existing = await prisma.hero.findMany({ select: { id: true, name: true } });
+  const byName = new Map(existing.map((hero) => [hero.name.toLowerCase(), hero]));
+
+  // Role of a new hero = the first role mentioned for it, else FIGHTER.
+  const newHeroes = new Map<string, { name: string; role: HeroRole }>();
+  for (const row of rows) {
+    const key = row.hero.toLowerCase();
+    if (byName.has(key)) continue;
+    const known = newHeroes.get(key);
+    if (!known) newHeroes.set(key, { name: row.hero, role: row.role ?? "FIGHTER" });
+    else if (row.role && known.role === "FIGHTER") known.role = row.role;
+  }
+  if (newHeroes.size > 0) {
+    await prisma.hero.createMany({ data: [...newHeroes.values()], skipDuplicates: true });
+    const created = await prisma.hero.findMany({ select: { id: true, name: true } });
+    for (const hero of created) byName.set(hero.name.toLowerCase(), hero);
+  }
+
+  const result = await prisma.skin.createMany({
+    data: rows.map((row) => ({ name: row.skin, tier: row.tier, heroId: byName.get(row.hero.toLowerCase())!.id })),
+    skipDuplicates: true,
+  });
+
+  revalidateSkinPages();
+  const skipped = rows.length - result.count;
+  return {
+    success: `เพิ่มฮีโร่ใหม่ ${newHeroes.size} · สกินใหม่ ${result.count}${skipped > 0 ? ` (ข้ามที่มีอยู่แล้ว ${skipped})` : ""}`,
+  };
 }

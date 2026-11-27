@@ -1,3 +1,4 @@
+import { LogoImage } from "@/components/Logo";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
@@ -17,14 +18,8 @@ export default async function HomePage() {
       <section className="bg-hero-gradient">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
           <div>
-            <div className="mb-5 flex items-center gap-3" aria-hidden>
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet to-violet/40 text-lg text-white shadow-goldGlow">
-                ♛
-              </span>
-              <span className="text-xs font-semibold uppercase tracking-[0.28em] text-ink-muted">
-                RoV · Banner Maker
-              </span>
-              <span className="h-px w-16 bg-gradient-to-r from-gold/60 to-transparent" />
+            <div className="mb-4">
+              <LogoImage />
             </div>
             <p className="inline-block rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold-soft">
               จัดฟรี · จ่ายเมื่อดาวน์โหลด · หรือรายเดือนไม่จำกัด

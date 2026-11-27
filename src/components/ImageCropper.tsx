@@ -202,7 +202,7 @@ export const CropSurface = forwardRef<
   const showBox = Boolean(rect && scale);
 
   return (
-    <div className="max-h-[55vh] overflow-auto rounded-xl border border-border bg-black/40">
+    <div className="max-h-[72vh] overflow-auto rounded-xl border border-border bg-black/40">
       <div className="relative mx-auto select-none" style={{ width: `${zoom * 100}%` }}>
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -327,7 +327,7 @@ export function ImageCropper({
       aria-label={title}
       className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/85 p-3"
     >
-      <div className="card w-full max-w-3xl space-y-3 p-4">
+      <div className="card w-full max-w-5xl space-y-3 p-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-ink">{title}</h2>
           <button type="button" onClick={onCancel} className="rounded-lg px-2 py-1 text-sm text-ink-muted hover:text-ink">

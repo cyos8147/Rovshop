@@ -116,7 +116,7 @@ export function ScreenshotCutter({ skins, refUrl = null }: { skins: CutterSkin[]
 
       {file ? (
         <div role="dialog" aria-modal="true" aria-label="ตัดรูปจากภาพแคป" className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/85 p-3">
-          <div className="card w-full max-w-4xl space-y-3 p-4">
+          <div className="card w-full max-w-6xl space-y-3 p-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-semibold text-ink">
                 ตัดรูปจากภาพแคป{" "}

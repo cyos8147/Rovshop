@@ -16,6 +16,7 @@ export async function getSettings() {
       minTopup: 20,
       planPrice: 199,
       planDays: 30,
+      heroArtUrl: null as string | null,
       updatedAt: new Date(),
     }
   );

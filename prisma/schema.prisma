@@ -128,6 +128,8 @@ model Settings {
   // Monthly unlimited plan, paid with coins. planPrice 0 = plan not offered.
   planPrice        Int      @default(199)
   planDays         Int      @default(30)
+  // Artwork behind the home-page hero, uploaded by the admin (public URL).
+  heroArtUrl       String?
   updatedAt        DateTime @updatedAt
 }
 

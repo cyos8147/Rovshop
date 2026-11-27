@@ -10,7 +10,7 @@ import { getSession, requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { getSettings, SETTINGS_ID } from "@/lib/settings";
 import { verifySlip } from "@/lib/slip";
-import { savePrivateSlip, validateImageFile } from "@/lib/uploads";
+import { savePrivateSlip, saveUploadedImage, validateImageFile } from "@/lib/uploads";
 import { parsePromptPayId } from "@/lib/promptpay";
 import { after } from "next/server";
 import { downloadCostCents, formatCoins, MAX_TOPUP } from "@/lib/coins";
@@ -400,4 +400,36 @@ export async function updatePricingAction(_prev: AdminFormState, formData: FormD
   await prisma.settings.upsert({ where: { id: SETTINGS_ID }, update: data, create: { id: SETTINGS_ID, ...data } });
   revalidatePath("/", "layout");
   return { success: "บันทึกแล้ว" };
+}
+
+// Home-page hero artwork: an image the admin has the right to use. Sending
+// "remove" clears it and the plain geometric background is used again.
+export async function updateHeroArtAction(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
+  await requireAdmin();
+
+  if (formData.get("remove")) {
+    await prisma.settings.upsert({
+      where: { id: SETTINGS_ID },
+      update: { heroArtUrl: null },
+      create: { id: SETTINGS_ID, heroArtUrl: null },
+    });
+    revalidatePath("/", "layout");
+    return { success: "ลบภาพพื้นหลังแล้ว" };
+  }
+
+  const file = formData.get("image");
+  if (!(file instanceof File) || file.size === 0) return { error: "กรุณาเลือกรูปและครอปก่อน" };
+  let url: string;
+  try {
+    url = await saveUploadedImage(file);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "อัปโหลดรูปภาพไม่สำเร็จ" };
+  }
+  await prisma.settings.upsert({
+    where: { id: SETTINGS_ID },
+    update: { heroArtUrl: url },
+    create: { id: SETTINGS_ID, heroArtUrl: url },
+  });
+  revalidatePath("/", "layout");
+  return { success: "ตั้งภาพพื้นหลังหน้าแรกแล้ว" };
 }

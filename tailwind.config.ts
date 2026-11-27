@@ -5,37 +5,40 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Soft royal-purple theme: a lighter, calmer background than pure
+        // black so gold buttons and glass panels stand out.
         bg: {
-          DEFAULT: "#0a0a14",
-          soft: "#12121f",
+          DEFAULT: "#221a44",
+          soft: "#2c2357",
         },
-        card: "#181828",
+        card: "#2f2660",
         border: {
-          DEFAULT: "#2a2a40",
+          DEFAULT: "#4a3d86",
         },
         gold: {
-          DEFAULT: "#e8b64a",
-          soft: "#f5d78e",
+          DEFAULT: "#f5b93f",
+          soft: "#ffd77a",
         },
         violet: {
-          DEFAULT: "#7c5cff",
-          soft: "#a58bff",
+          DEFAULT: "#8b6cff",
+          soft: "#b9a4ff",
         },
         ink: {
-          DEFAULT: "#f2f2f7",
-          muted: "#9a9ab0",
+          DEFAULT: "#f7f4ff",
+          muted: "#bdb3e0",
         },
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        glow: "0 0 24px rgba(124, 92, 255, 0.25)",
-        goldGlow: "0 0 24px rgba(232, 182, 74, 0.25)",
+        glow: "0 0 28px rgba(139, 108, 255, 0.35)",
+        goldGlow: "0 6px 28px rgba(245, 185, 63, 0.35)",
+        panel: "0 10px 40px rgba(10, 6, 30, 0.35), inset 0 1px 0 rgba(255,255,255,0.08)",
       },
       backgroundImage: {
         "hero-gradient":
-          "radial-gradient(circle at 20% 20%, rgba(124,92,255,0.25), transparent 45%), radial-gradient(circle at 80% 0%, rgba(232,182,74,0.18), transparent 40%), linear-gradient(180deg, #0a0a14 0%, #0a0a14 100%)",
+          "radial-gradient(circle at 15% 10%, rgba(185,164,255,0.22), transparent 45%), radial-gradient(circle at 85% 0%, rgba(255,120,200,0.16), transparent 40%)",
       },
     },
   },

@@ -4,6 +4,7 @@ import { SkinSorter } from "@/components/SkinSorter";
 import type { BannerInfo } from "@/lib/banner";
 import { daysLeft, getCurrentAccess } from "@/lib/membership";
 import { getSettings } from "@/lib/settings";
+import { CrownIcon } from "@/components/icons";
 
 export const metadata: Metadata = {
   title: "เรียงสกินทำป้ายขายไอดี",
@@ -50,15 +51,27 @@ export default async function SortPage({
   const skinCount = heroes.reduce((sum, hero) => sum + hero.skins.length, 0);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pt-8">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">
-          เรียงสกิน <span className="text-gold">ทำป้ายขายไอดี</span>
-        </h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          เลือกสกินที่มี → จัดเรียง → ได้ภาพเดียวพร้อมโพสต์ · ลองจัดได้เลยไม่ต้องสมัคร ·{" "}
-          {heroes.length} ฮีโร่ · {skinCount.toLocaleString("th-TH")} สกินในคลัง
-        </p>
+    <div className="mx-auto max-w-6xl px-4 pt-5">
+      <div className="card relative mb-2 overflow-hidden px-5 py-6 sm:px-8 sm:py-8">
+        {/* soft decorative glows */}
+        <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[#ff8ad8]/25 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full bg-violet/30 blur-3xl" />
+        <div className="relative">
+          <h1 className="text-3xl font-black italic leading-tight text-ink drop-shadow sm:text-4xl">
+            เรียงสกิน{" "}
+            <span className="bg-gradient-to-b from-gold-soft to-gold bg-clip-text text-transparent">ทำป้ายขายไอดี</span>
+          </h1>
+          <p className="mt-3 flex items-center gap-2 text-sm text-ink sm:text-base">
+            <CrownIcon className="shrink-0 text-gold" />
+            เลือกสกินที่มี → จัดเรียง → ได้ภาพเดียวพร้อมโพสต์
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className="pill">ลองจัดได้เลยไม่ต้องสมัคร</span>
+            <span className="pill">
+              {heroes.length} ฮีโร่ · {skinCount.toLocaleString("th-TH")} สกินในคลัง
+            </span>
+          </div>
+        </div>
       </div>
       <SkinSorter
         key={accountSlug ? String(accountSlug) : "default"}

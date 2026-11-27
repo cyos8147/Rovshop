@@ -81,7 +81,7 @@ export function ScreenshotCutter({ skins, refUrl = null }: { skins: CutterSkin[]
     <>
       <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
         <div>
-          <h2 className="font-semibold text-ink">ตัดรูปจากภาพแคปหน้าจอ (หลายสกินจากภาพเดียว)</h2>
+          <h2 className="font-semibold text-ink">ตัดเอง (ใช้ถ้าแยกอัตโนมัติไม่ได้)</h2>
           <p className="mt-1 text-sm text-ink-muted">
             เลือกภาพแคปที่มีการ์ดสกินหลายใบ แล้วลากกรอบไปทีละใบ — กรอบคงขนาดเดิม กดบันทึกได้ต่อเนื่องโดยไม่ต้องเลือกภาพใหม่
           </p>

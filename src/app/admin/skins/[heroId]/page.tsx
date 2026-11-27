@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { createSkinAction, deleteHeroAction, deleteSkinAction, updateSkinAction } from "@/lib/actions/skins";
 import { AddSkinForm, DeleteHeroButton, SkinRow } from "@/components/SkinAdmin";
+import { AutoSplitter } from "@/components/AutoSplitter";
 import { ScreenshotCutter } from "@/components/ScreenshotCutter";
 
 export const metadata: Metadata = { title: "จัดการสกินของฮีโร่" };
@@ -48,6 +49,13 @@ export default async function AdminHeroSkinsPage({
       </div>
 
       <AddSkinForm action={createSkinAction.bind(null, hero.id)} heroName={hero.name} />
+
+      <AutoSplitter
+        refUrl={refUrl}
+        skins={[...hero.skins]
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((skin) => ({ id: skin.id, name: skin.name, hasImage: Boolean(skin.imageUrl) }))}
+      />
 
       <ScreenshotCutter
         refUrl={refUrl}

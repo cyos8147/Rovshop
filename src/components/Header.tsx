@@ -26,9 +26,6 @@ export async function Header() {
           <Link href="/#pricing" className="transition hover:text-gold">
             ราคา
           </Link>
-          <Link href="/accounts" className="transition hover:text-gold">
-            ไอดีขายจากร้าน
-          </Link>
           <Link href="/faq" className="transition hover:text-gold">
             คำถามที่พบบ่อย
           </Link>

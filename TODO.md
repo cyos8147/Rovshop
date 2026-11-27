@@ -10,6 +10,7 @@
 5. (ไม่บังคับ) เปิด SlipOK ตรวจสลิปอัตโนมัติ, ตั้งแจ้งเตือน Telegram/Discord
 
 ## ก่อนเปิดเว็บจริง
+- [x] นำส่วนร้านขายไอดีออก เหลือเฉพาะเครื่องมือทำป้าย (ตารางเก่า GameAccount/AccountImage/Testimonial ยังอยู่ในฐานข้อมูล ลบได้ภายหลังด้วย migration เมื่อแน่ใจว่าไม่ต้องใช้)
 - [x] รวม branch เข้า `main` (PR #1)
 - [x] Supabase: ลิงก์ Session pooler, bucket `product-images` (public) และ `payment-slips` (ไม่ public)
 - [ ] Deploy บน Render แผน Free (ดูหัวข้อ Deploy ใน README)

@@ -54,6 +54,9 @@ model Payment {
   @@index([userId])
 }
 
+// LEGACY — the ID shop was removed from the site; these three models are
+// unused and kept only so no data is dropped. Remove them (with a
+// migration that drops the tables) once you are sure nothing is needed.
 model GameAccount {
   id                 String         @id @default(cuid())
   slug               String         @unique

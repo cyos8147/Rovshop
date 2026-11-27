@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { SkinSorter } from "@/components/SkinSorter";
-import type { BannerInfo } from "@/lib/banner";
 import { getWallet } from "@/lib/wallet";
 import { getSettings } from "@/lib/settings";
 
@@ -10,14 +9,8 @@ export const metadata: Metadata = {
   description: "เลือกสกิน RoV ที่มี จัดเรียง แล้วสร้างเป็นภาพป้ายขายไอดีภาพเดียว ใช้ได้ทั้งมือถือและคอม จัดฟรี จ่ายเฉพาะตอนดาวน์โหลด",
 };
 
-export default async function SortPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ account?: string | string[] }>;
-}) {
-  const { account: accountSlug } = await searchParams;
-
-  const [heroes, account, wallet, settings] = await Promise.all([
+export default async function SortPage() {
+  const [heroes, wallet, settings] = await Promise.all([
     prisma.hero.findMany({
       orderBy: { name: "asc" },
       select: {
@@ -27,25 +20,9 @@ export default async function SortPage({
         skins: { select: { id: true, name: true, tier: true, imageUrl: true } },
       },
     }),
-    typeof accountSlug === "string"
-      ? prisma.gameAccount.findUnique({
-          where: { slug: accountSlug },
-          select: { title: true, rank: true, heroCount: true, price: true, discountPrice: true },
-        })
-      : null,
     getWallet(),
     getSettings(),
   ]);
-
-  // "ทำป้ายจากไอดีนี้" link from the admin: prefill the banner details.
-  const initialInfo: Partial<BannerInfo> | undefined = account
-    ? {
-        title: account.title.slice(0, 60),
-        rank: account.rank,
-        heroCount: String(account.heroCount),
-        price: (account.discountPrice ?? account.price).toLocaleString("en-US"),
-      }
-    : undefined;
 
   const skinCount = heroes.reduce((sum, hero) => sum + hero.skins.length, 0);
 
@@ -61,9 +38,7 @@ export default async function SortPage({
         </p>
       </div>
       <SkinSorter
-        key={accountSlug ? String(accountSlug) : "default"}
         heroes={heroes}
-        initialInfo={initialInfo}
         watermark={{ text: "ทำป้ายที่", brand: "OSCAR", suffix: "Gaming images" }}
         wallet={{
           state: wallet.state,

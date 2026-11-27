@@ -21,12 +21,6 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               แดชบอร์ด
             </Link>
             <Link
-              href="/admin/accounts"
-              className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
-            >
-              จัดการไอดี
-            </Link>
-            <Link
               href="/admin/skins"
               className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
             >

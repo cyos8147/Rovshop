@@ -11,7 +11,7 @@ import {
   updateSkinAction,
 } from "@/lib/actions/skins";
 import { AddSkinForm, BulkSkinForm, DeleteHeroButton, HeroForm, SkinRow } from "@/components/SkinAdmin";
-import { skinTierRank } from "@/lib/types";
+import { ScreenshotCutter } from "@/components/ScreenshotCutter";
 
 export const metadata: Metadata = { title: "จัดการสกินของฮีโร่" };
 
@@ -34,9 +34,7 @@ export default async function AdminHeroSkinsPage({
   const missingCount = hero.skins.filter((skin) => !skin.imageUrl).length;
   const skins = hero.skins
     .filter((skin) => !onlyMissing || !skin.imageUrl)
-    .sort(
-    (a, b) => skinTierRank(a.tier) - skinTierRank(b.tier) || a.name.localeCompare(b.name)
-  );
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className="space-y-6">
@@ -54,6 +52,12 @@ export default async function AdminHeroSkinsPage({
         action={updateHeroAction.bind(null, hero.id)}
         defaultName={hero.name}
         submitLabel="บันทึกข้อมูลฮีโร่"
+      />
+
+      <ScreenshotCutter
+        skins={[...hero.skins]
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((skin) => ({ id: skin.id, name: skin.name, hasImage: Boolean(skin.imageUrl) }))}
       />
 
       <div className="grid gap-4 lg:grid-cols-2">

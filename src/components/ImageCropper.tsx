@@ -1,196 +1,295 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 
-// Full-screen crop dialog: drag to move, slider / mouse wheel / two-finger
-// pinch to zoom. Everything happens in the browser; the result is a
-// fixed-size JPEG (default 480x600, ratio 4:5) so uploads stay small and
-// every skin tile has the same shape no matter what screenshot it came from.
+// Crop-box image cropper. The whole picture is shown; a crop rectangle can
+// be moved by dragging inside it and resized with the handles on its corners
+// (and edges when the ratio is free). Everything happens in the browser and
+// the result is a JPEG.
 
-type CropResult = { blob: Blob; dataUrl: string };
+type Rect = { x: number; y: number; w: number; h: number }; // natural-pixel coordinates
+type Handle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 
-const MAX_ZOOM = 5;
+export type CropResult = { blob: Blob; dataUrl: string };
+export type CropSurfaceHandle = { crop: () => Promise<CropResult | null> };
 
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+// Handle positions (percent of the box) and cursors.
+const HANDLES: { id: Handle; left: string; top: string; cursor: string }[] = [
+  { id: "nw", left: "0%", top: "0%", cursor: "nwse-resize" },
+  { id: "n", left: "50%", top: "0%", cursor: "ns-resize" },
+  { id: "ne", left: "100%", top: "0%", cursor: "nesw-resize" },
+  { id: "e", left: "100%", top: "50%", cursor: "ew-resize" },
+  { id: "se", left: "100%", top: "100%", cursor: "nwse-resize" },
+  { id: "s", left: "50%", top: "100%", cursor: "ns-resize" },
+  { id: "sw", left: "0%", top: "100%", cursor: "nesw-resize" },
+  { id: "w", left: "0%", top: "50%", cursor: "ew-resize" },
+];
+
+// Start card-sized and near the top, so every handle is visible at once even
+// on a tall phone screenshot.
+function initialRect(nat: { w: number; h: number }, aspect: number): Rect {
+  const w = Math.min(nat.w * 0.4, nat.h * 0.4 * aspect, 460);
+  const h = w / aspect;
+  return { x: (nat.w - w) / 2, y: Math.min(nat.h * 0.05, nat.h - h), w, h };
+}
+
+// Reshape to the ratio, keeping the centre, and stay inside the picture.
+function fitToAspect(r: Rect, nat: { w: number; h: number }, aspect: number): Rect {
+  let w = r.w;
+  let h = w / aspect;
+  if (h > nat.h) {
+    h = nat.h;
+    w = h * aspect;
+  }
+  if (w > nat.w) {
+    w = nat.w;
+    h = w / aspect;
+  }
+  return {
+    x: clamp(r.x + r.w / 2 - w / 2, 0, nat.w - w),
+    y: clamp(r.y + r.h / 2 - h / 2, 0, nat.h - h),
+    w,
+    h,
+  };
+}
+
+function applyDrag(
+  handle: Handle | "move",
+  r0: Rect,
+  dx: number,
+  dy: number,
+  nat: { w: number; h: number },
+  aspect: number,
+  lock: boolean,
+  minSize: number
+): Rect {
+  if (handle === "move") {
+    return { ...r0, x: clamp(r0.x + dx, 0, nat.w - r0.w), y: clamp(r0.y + dy, 0, nat.h - r0.h) };
+  }
+
+  const west = handle.includes("w");
+  const east = handle.includes("e");
+  const north = handle.includes("n");
+  const south = handle.includes("s");
+
+  if (lock) {
+    // Corners only: the opposite corner stays put, ratio stays fixed.
+    const anchorX = west ? r0.x + r0.w : r0.x;
+    const anchorY = north ? r0.y + r0.h : r0.y;
+    const fromX = (west ? -dx : dx) + r0.w;
+    const fromY = ((north ? -dy : dy) + r0.h) * aspect;
+    // follow whichever direction the finger moved further
+    let w = Math.abs(fromX - r0.w) >= Math.abs(fromY - r0.w) ? fromX : fromY;
+    const maxW = Math.min(west ? anchorX : nat.w - anchorX, (north ? anchorY : nat.h - anchorY) * aspect);
+    w = clamp(w, minSize, Math.max(minSize, maxW));
+    const h = w / aspect;
+    return { x: west ? anchorX - w : anchorX, y: north ? anchorY - h : anchorY, w, h };
+  }
+
+  let left = r0.x;
+  let right = r0.x + r0.w;
+  let top = r0.y;
+  let bottom = r0.y + r0.h;
+  if (west) left = clamp(r0.x + dx, 0, right - minSize);
+  if (east) right = clamp(r0.x + r0.w + dx, left + minSize, nat.w);
+  if (north) top = clamp(r0.y + dy, 0, bottom - minSize);
+  if (south) bottom = clamp(r0.y + r0.h + dy, top + minSize, nat.h);
+  return { x: left, y: top, w: right - left, h: bottom - top };
+}
+
+export const CropSurface = forwardRef<
+  CropSurfaceHandle,
+  {
+    file: File;
+    // Ratio (width / height) used when `lock` is on, and for the first box.
+    aspect: number;
+    lock: boolean;
+    // Output size: the locked ratio uses outWidth; a free box keeps its own
+    // shape, capped so the longer side is at most maxOut.
+    outWidth?: number;
+    maxOut?: number;
+    zoom?: number;
+    onStatus?: (status: { ready: boolean; error: string | null }) => void;
+  }
+>(function CropSurface({ file, aspect, lock, outWidth = 480, maxOut = 900, zoom = 1, onStatus }, ref) {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [src, setSrc] = useState<string | null>(null);
+  const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
+  const [scale, setScale] = useState(0); // display px per natural px
+  const [rect, setRect] = useState<Rect | null>(null);
+  const drag = useRef<{ handle: Handle | "move"; x: number; y: number; rect: Rect } | null>(null);
+
+  // Load the picked file. An <img> is used so the browser applies the
+  // photo's rotation and decodes HEIC from an iPad.
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setSrc(url);
+    setNat(null);
+    setRect(null);
+    onStatus?.({ ready: false, error: null });
+    return () => URL.revokeObjectURL(url);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file]);
+
+  const measure = useCallback(() => {
+    const img = imgRef.current;
+    if (img && img.naturalWidth) setScale(img.clientWidth / img.naturalWidth);
+  }, []);
+
+  // Keep the on-screen scale correct when the zoom or the window changes.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(img);
+    return () => observer.disconnect();
+  }, [measure, src]);
+
+  // Locking to the ratio reshapes the existing box.
+  useEffect(() => {
+    if (!nat) return;
+    setRect((r) => (r ? (lock ? fitToAspect(r, nat, aspect) : r) : initialRect(nat, aspect)));
+  }, [nat, lock, aspect]);
+
+  const begin = (handle: Handle | "move") => (event: React.PointerEvent<HTMLElement>) => {
+    if (!rect) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { handle, x: event.clientX, y: event.clientY, rect };
+  };
+
+  const move = (event: React.PointerEvent<HTMLElement>) => {
+    const d = drag.current;
+    if (!d || !nat || !scale) return;
+    const dx = (event.clientX - d.x) / scale;
+    const dy = (event.clientY - d.y) / scale;
+    setRect(applyDrag(d.handle, d.rect, dx, dy, nat, aspect, lock, 24 / scale));
+  };
+
+  const end = () => {
+    drag.current = null;
+  };
+
+  useImperativeHandle(ref, () => ({
+    crop: async () => {
+      const img = imgRef.current;
+      if (!img || !rect) return null;
+      let outW: number;
+      let outH: number;
+      if (lock) {
+        outW = outWidth;
+        outH = Math.round(outWidth / aspect);
+      } else {
+        const k = Math.min(1, maxOut / Math.max(rect.w, rect.h));
+        outW = Math.max(1, Math.round(rect.w * k));
+        outH = Math.max(1, Math.round(rect.h * k));
+      }
+      const out = document.createElement("canvas");
+      out.width = outW;
+      out.height = outH;
+      const ctx = out.getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, outW, outH);
+      const blob = await new Promise<Blob | null>((resolve) => out.toBlob(resolve, "image/jpeg", 0.9));
+      if (!blob) return null;
+      return { blob, dataUrl: out.toDataURL("image/jpeg", 0.88) };
+    },
+  }));
+
+  const showBox = Boolean(rect && scale);
+
+  return (
+    <div className="max-h-[55vh] overflow-auto rounded-xl border border-border bg-black/40">
+      <div className="relative mx-auto select-none" style={{ width: `${zoom * 100}%` }}>
+        {src ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            ref={imgRef}
+            src={src}
+            alt=""
+            draggable={false}
+            onLoad={(event) => {
+              const img = event.currentTarget;
+              setNat({ w: img.naturalWidth, h: img.naturalHeight });
+              measure();
+              onStatus?.({ ready: true, error: null });
+            }}
+            onError={() => onStatus?.({ ready: false, error: "เปิดรูปนี้ไม่ได้ ลองรูปอื่น (JPG, PNG หรือ HEIC)" })}
+            className="block h-auto w-full"
+          />
+        ) : null}
+
+        {showBox && rect ? (
+          <div
+            data-testid="crop-box"
+            onPointerDown={begin("move")}
+            onPointerMove={move}
+            onPointerUp={end}
+            onPointerCancel={end}
+            className="absolute cursor-move touch-none border-2 border-gold"
+            style={{
+              left: rect.x * scale,
+              top: rect.y * scale,
+              width: rect.w * scale,
+              height: rect.h * scale,
+              boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
+            }}
+          >
+            {HANDLES.filter((h) => !lock || h.id.length === 2).map((h) => (
+              <span
+                key={h.id}
+                data-testid={`crop-handle-${h.id}`}
+                onPointerDown={begin(h.id)}
+                className="absolute flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center"
+                style={{ left: h.left, top: h.top, cursor: h.cursor }}
+              >
+                <span className="h-4 w-4 rounded-full border-2 border-bg bg-gold shadow" />
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+});
+
+// Modal around the surface: zoom, optional ratio lock, confirm / cancel.
 export function ImageCropper({
   file,
   aspect = 4 / 5,
   outWidth = 480,
-  title = "ครอปรูป",
+  mode = "fixed",
+  title = "ตัดรูป",
   onCancel,
   onDone,
 }: {
   file: File;
   aspect?: number;
   outWidth?: number;
+  // "fixed": the box always keeps `aspect`. "free": starts free, with a
+  // checkbox to lock it to `aspect`.
+  mode?: "fixed" | "free";
   title?: string;
   onCancel: () => void;
   onDone: (result: CropResult) => void;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const offset = useRef({ x: 0, y: 0 }); // image centre relative to frame centre, in frame px
-  const zoomRef = useRef(1);
-  const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const pinch = useRef<{ dist: number; zoom: number } | null>(null);
-
+  const surface = useRef<CropSurfaceHandle>(null);
+  const [lock, setLock] = useState(mode === "fixed");
   const [zoom, setZoom] = useState(1);
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [frame] = useState(() => {
-    const maxW = Math.min(aspect > 1.2 ? 560 : 360, window.innerWidth - 48);
-    const maxH = Math.max(200, window.innerHeight - 280);
-    let w = maxW;
-    let h = w / aspect;
-    if (h > maxH) {
-      h = maxH;
-      w = h * aspect;
-    }
-    return { w: Math.round(w), h: Math.round(h) };
-  });
+  const [status, setStatus] = useState<{ ready: boolean; error: string | null }>({ ready: false, error: null });
+  const [busy, setBusy] = useState(false);
 
-  // Geometry of the image at the current zoom ("cover" fit × zoom).
-  const geometry = useCallback(() => {
-    const img = imgRef.current;
-    if (!img) return null;
-    const base = Math.max(frame.w / img.naturalWidth, frame.h / img.naturalHeight);
-    const scale = base * zoomRef.current;
-    return { dw: img.naturalWidth * scale, dh: img.naturalHeight * scale };
-  }, [frame]);
+  const ratioLabel = Math.abs(aspect - 4 / 5) < 0.01 ? "4:5" : Math.abs(aspect - 1.8) < 0.01 ? "1080:600" : aspect.toFixed(2);
 
-  const clampOffset = useCallback(() => {
-    const g = geometry();
-    if (!g) return;
-    const maxX = Math.max(0, (g.dw - frame.w) / 2);
-    const maxY = Math.max(0, (g.dh - frame.h) / 2);
-    offset.current.x = Math.min(maxX, Math.max(-maxX, offset.current.x));
-    offset.current.y = Math.min(maxY, Math.max(-maxY, offset.current.y));
-  }, [frame, geometry]);
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    const img = imgRef.current;
-    const g = geometry();
-    if (!canvas || !img || !g) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = frame.w * dpr;
-    canvas.height = frame.h * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = "#0a0a14";
-    ctx.fillRect(0, 0, frame.w, frame.h);
-    ctx.drawImage(img, frame.w / 2 + offset.current.x - g.dw / 2, frame.h / 2 + offset.current.y - g.dh / 2, g.dw, g.dh);
-  }, [frame, geometry]);
-
-  const applyZoom = useCallback(
-    (value: number) => {
-      const z = Math.min(MAX_ZOOM, Math.max(1, value));
-      zoomRef.current = z;
-      setZoom(z);
-      clampOffset();
-      draw();
-    },
-    [clampOffset, draw]
-  );
-
-  // Load the picked file. An <img> element is used (not createImageBitmap)
-  // so the browser applies the photo's EXIF rotation and decodes HEIC.
-  useEffect(() => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    let cancelled = false;
-    img.onload = () => {
-      if (cancelled) return;
-      imgRef.current = img;
-      setReady(true);
-    };
-    img.onerror = () => {
-      if (!cancelled) setError("เปิดรูปนี้ไม่ได้ ลองรูปอื่น (JPG, PNG หรือ HEIC)");
-    };
-    img.src = url;
-    return () => {
-      cancelled = true;
-      URL.revokeObjectURL(url);
-    };
-  }, [file]);
-
-  useEffect(() => {
-    if (ready) draw();
-  }, [ready, draw]);
-
-  // Wheel zoom needs a non-passive listener so the page doesn't scroll.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      applyZoom(zoomRef.current * (event.deltaY < 0 ? 1.08 : 1 / 1.08));
-    };
-    canvas.addEventListener("wheel", onWheel, { passive: false });
-    return () => canvas.removeEventListener("wheel", onWheel);
-  }, [applyZoom]);
-
-  const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    event.currentTarget.setPointerCapture(event.pointerId);
-    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    if (pointers.current.size === 2) {
-      const [a, b] = [...pointers.current.values()];
-      pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, zoom: zoomRef.current };
-    }
-  };
-
-  const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    const previous = pointers.current.get(event.pointerId);
-    if (!previous) return;
-    const current = { x: event.clientX, y: event.clientY };
-    pointers.current.set(event.pointerId, current);
-
-    if (pointers.current.size === 1) {
-      offset.current.x += current.x - previous.x;
-      offset.current.y += current.y - previous.y;
-      clampOffset();
-      draw();
-    } else if (pointers.current.size === 2 && pinch.current) {
-      const [a, b] = [...pointers.current.values()];
-      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
-      applyZoom(pinch.current.zoom * (dist / pinch.current.dist));
-    }
-  };
-
-  const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    pointers.current.delete(event.pointerId);
-    if (pointers.current.size < 2) pinch.current = null;
-  };
-
-  const confirm = () => {
-    const img = imgRef.current;
-    const g = geometry();
-    if (!img || !g) return;
-    const outW = outWidth;
-    const outH = Math.round(outWidth / aspect);
-    const out = document.createElement("canvas");
-    out.width = outW;
-    out.height = outH;
-    const ctx = out.getContext("2d");
-    if (!ctx) return;
-    const k = outW / frame.w;
-    ctx.fillStyle = "#0a0a14";
-    ctx.fillRect(0, 0, outW, outH);
-    ctx.drawImage(
-      img,
-      (frame.w / 2 + offset.current.x - g.dw / 2) * k,
-      (frame.h / 2 + offset.current.y - g.dh / 2) * k,
-      g.dw * k,
-      g.dh * k
-    );
-    out.toBlob(
-      (blob) => {
-        if (!blob) return setError("สร้างรูปไม่สำเร็จ ลองใหม่อีกครั้ง");
-        onDone({ blob, dataUrl: out.toDataURL("image/jpeg", 0.88) });
-      },
-      "image/jpeg",
-      0.88
-    );
+  const confirm = async () => {
+    setBusy(true);
+    const result = await surface.current?.crop();
+    setBusy(false);
+    if (result) onDone(result);
+    else setStatus((s) => ({ ...s, error: "ตัดรูปไม่สำเร็จ ลองใหม่อีกครั้ง" }));
   };
 
   return (
@@ -198,9 +297,9 @@ export function ImageCropper({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/85 p-3"
     >
-      <div className={`card w-full space-y-3 p-4 ${aspect > 1.2 ? "max-w-xl" : "max-w-md"}`}>
+      <div className="card w-full max-w-3xl space-y-3 p-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-ink">{title}</h2>
           <button type="button" onClick={onCancel} className="rounded-lg px-2 py-1 text-sm text-ink-muted hover:text-ink">
@@ -208,45 +307,53 @@ export function ImageCropper({
           </button>
         </div>
 
-        {error ? (
-          <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p>
+        {status.error ? (
+          <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{status.error}</p>
         ) : (
-          <div className="flex justify-center">
-            <canvas
-              ref={canvasRef}
-              data-testid="crop-canvas"
-              style={{ width: frame.w, height: frame.h, touchAction: "none" }}
-              className="cursor-grab rounded-xl border border-border active:cursor-grabbing"
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-            />
-          </div>
+          <CropSurface
+            ref={surface}
+            file={file}
+            aspect={aspect}
+            lock={lock}
+            outWidth={outWidth}
+            zoom={zoom}
+            onStatus={setStatus}
+          />
         )}
 
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-ink-muted">ซูม</span>
-          <input
-            type="range"
-            min={1}
-            max={MAX_ZOOM}
-            step={0.01}
-            value={zoom}
-            disabled={!ready}
-            onChange={(event) => applyZoom(Number(event.target.value))}
-            aria-label="ซูมรูป"
-            className="w-full accent-[#e8b64a]"
-          />
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <label className="flex items-center gap-2 text-xs text-ink-muted">
+            ขยายภาพ
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.05}
+              value={zoom}
+              onChange={(event) => setZoom(Number(event.target.value))}
+              aria-label="ขยายภาพ"
+              className="w-40 accent-[#e8b64a]"
+            />
+          </label>
+          {mode === "free" ? (
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
+              <input type="checkbox" checked={lock} onChange={(event) => setLock(event.target.checked)} />
+              ล็อกสัดส่วน {ratioLabel}
+            </label>
+          ) : (
+            <span className="text-xs text-ink-muted">สัดส่วนคงที่ {ratioLabel}</span>
+          )}
         </div>
-        <p className="text-xs text-ink-muted">ลากเพื่อเลื่อนรูป · ซูมด้วยแถบ หรือบีบสองนิ้ว · ตัดเป็นสัดส่วน {aspect === 4 / 5 ? "4:5" : "ตามช่อง"}</p>
+        <p className="text-xs text-ink-muted">
+          ลากในกรอบเพื่อเลื่อน · ลากจุดสีทองที่มุม{mode === "free" && !lock ? "และขอบ" : ""}เพื่อปรับขนาด · เลื่อนภาพได้ถ้าภาพยาว
+        </p>
 
         <div className="grid grid-cols-2 gap-2">
           <button type="button" onClick={onCancel} className="btn-secondary">
             ยกเลิก
           </button>
-          <button type="button" onClick={confirm} disabled={!ready || Boolean(error)} className="btn-primary">
-            ใช้รูปนี้
+          <button type="button" onClick={confirm} disabled={!status.ready || busy || Boolean(status.error)} className="btn-primary">
+            {busy ? "กำลังตัด..." : "ใช้รูปนี้"}
           </button>
         </div>
       </div>

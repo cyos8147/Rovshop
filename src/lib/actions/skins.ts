@@ -309,3 +309,25 @@ export async function importCatalogAction(_prev: SkinFormState, formData: FormDa
     success: `เพิ่มฮีโร่ใหม่ ${newHeroes.size} · สกินใหม่ ${result.count}${skipped > 0 ? ` (ข้ามที่มีอยู่แล้ว ${skipped})` : ""}`,
   };
 }
+
+// Sets (or replaces) only the picture of one skin. Used by the screenshot
+// cutter, which crops several skins out of one screenshot in a row.
+export async function setSkinImageAction(skinId: string, formData: FormData): Promise<SkinFormState> {
+  await requireAdmin();
+
+  let imageUrl: string | null;
+  try {
+    imageUrl = await optionalImage(formData);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "อัปโหลดรูปภาพไม่สำเร็จ" };
+  }
+  if (!imageUrl) return { error: "ไม่พบรูป กรุณาลองตัดใหม่อีกครั้ง" };
+
+  try {
+    const skin = await prisma.skin.update({ where: { id: skinId }, data: { imageUrl }, select: { heroId: true, name: true } });
+    revalidateSkinPages(skin.heroId);
+    return { success: `บันทึกรูป "${skin.name}" แล้ว` };
+  } catch {
+    return { error: "ไม่พบสกินนี้ อาจถูกลบไปแล้ว" };
+  }
+}

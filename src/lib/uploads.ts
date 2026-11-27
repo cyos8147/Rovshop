@@ -8,7 +8,7 @@ const ALLOWED_IMAGE_MIME: Record<string, string> = {
   "image/webp": "webp",
 };
 
-export const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+export const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB (request limit is 6 MB, see next.config.js)
 
 function getSupabaseAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -27,7 +27,7 @@ function getSupabaseAdminClient() {
 // to Supabase Storage under a freshly generated random name (never the
 // client-supplied filename/extension) so an upload can't be used for path
 // traversal or to smuggle in an executable/HTML file served from our bucket.
-// Throws a user-facing error unless the file is a JPG/PNG/WEBP of 1B–5MB;
+// Throws a user-facing error unless the file is a JPG/PNG/WEBP of 1B–4MB;
 // returns the extension to store it under.
 export function validateImageFile(file: File): string {
   const extension = ALLOWED_IMAGE_MIME[file.type];
@@ -38,7 +38,7 @@ export function validateImageFile(file: File): string {
     throw new Error("ไฟล์รูปภาพว่างเปล่า");
   }
   if (file.size > MAX_IMAGE_SIZE) {
-    throw new Error("ไฟล์รูปภาพต้องมีขนาดไม่เกิน 5MB ต่อไฟล์");
+    throw new Error("ไฟล์รูปภาพต้องมีขนาดไม่เกิน 4MB ต่อไฟล์");
   }
   return extension;
 }

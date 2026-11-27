@@ -541,7 +541,7 @@ export function PayStep({
       const file = new File([blob], fileName(), { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
         try {
-          await navigator.share({ files: [file], title: design.info.code || "ขายไอดี RoV" });
+          await navigator.share({ files: [file], title: design.info.code || "ป้ายสกิน RoV" });
         } catch (e) {
           // Safari drops the "user tapped" permission while we waited for
           // the payment — the banner is paid now, so a second tap works.

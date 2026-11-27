@@ -14,7 +14,7 @@ export async function Footer() {
               <span className="text-xs font-medium tracking-[0.18em] text-ink-muted">Gaming images</span>
             </p>
             <p className="mt-2 max-w-xs">
-              เว็บทำป้ายขายไอดีเกม เลือกสกิน ใส่ข้อมูลไอดี ได้ภาพเดียวพร้อมโพสต์
+              เว็บทำป้ายสกินเกม RoV เลือกสกิน ใส่ข้อมูลไอดี ได้ภาพเดียวพร้อมโพสต์
             </p>
           </div>
           <div>
@@ -22,7 +22,7 @@ export async function Footer() {
             <ul className="space-y-1">
               <li>
                 <a href="/sort" className="transition hover:text-gold">
-                  ทำป้ายขายไอดี
+                  ทำป้ายสกิน RoV
                 </a>
               </li>
               <li>

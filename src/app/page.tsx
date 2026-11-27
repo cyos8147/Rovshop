@@ -14,7 +14,16 @@ const TILE_STYLES = [
 ];
 
 export default async function HomePage() {
-  const [settings, skinCount] = await Promise.all([getSettings(), prisma.skin.count()]);
+  const [settings, skinCount, heroes] = await Promise.all([
+    getSettings(),
+    prisma.skin.count(),
+    prisma.hero.findMany({
+      where: { skins: { some: {} } },
+      orderBy: [{ skins: { _count: "desc" } }, { name: "asc" }],
+      take: 24,
+      select: { id: true, name: true, _count: { select: { skins: true } } },
+    }),
+  ]);
 
   const c = (cents: number) => formatCoins(cents);
 
@@ -51,10 +60,10 @@ export default async function HomePage() {
               <LogoImage />
             </div>
             <p className="inline-block rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold-soft">
-              จัดฟรี · จ่ายเมื่อดาวน์โหลด · หรือรายเดือนไม่จำกัด
+              สำหรับเกม RoV · จัดฟรี · จ่ายเมื่อดาวน์โหลด · หรือรายเดือนไม่จำกัด
             </p>
             <h1 className="mt-4 text-4xl font-black leading-tight text-ink sm:text-5xl">
-              ทำป้ายขายไอดี
+              ทำป้ายสกิน RoV
               <br />
               <span className="bg-gradient-to-r from-gold-soft to-gold bg-clip-text text-transparent">
                 เสร็จในไม่กี่นาที
@@ -87,7 +96,7 @@ export default async function HomePage() {
           <div className="card relative z-10 rotate-1 border-gold/30 bg-card p-4 shadow-[0_28px_48px_-16px_rgba(0,0,0,0.75)]">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-lg font-bold text-ink">ขายไอดีเซียน สกินเพียบ</p>
+                <p className="text-lg font-bold text-ink">ตัวอย่างป้ายสกิน RoV</p>
                 <div className="mt-2 flex gap-1.5 text-[11px]">
                   {["แรงค์ เซียน", "ฮีโร่ 112", "สกิน 12"].map((t) => (
                     <span key={t} className="rounded-full border border-gold/40 px-2 py-0.5 text-gold">
@@ -149,6 +158,37 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* RoV heroes in the library */}
+      {heroes.length > 0 ? (
+        <section className="mx-auto max-w-6xl px-4 pb-4">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gold">RoV</p>
+              <h2 className="mt-1 text-2xl font-bold text-ink">ฮีโร่และสกินในคลัง</h2>
+            </div>
+            <Link href="/sort" className="text-sm text-gold hover:underline">
+              ดูทั้งหมดในหน้าทำป้าย →
+            </Link>
+          </div>
+          <ul className="mt-5 flex flex-wrap gap-2">
+            {heroes.map((hero) => (
+              <li key={hero.id}>
+                <Link
+                  href="/sort"
+                  className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-ink transition hover:border-gold"
+                >
+                  {hero.name}
+                  <span className="rounded-full bg-violet/25 px-1.5 text-[11px] font-semibold text-gold-soft">
+                    {hero._count.skins}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-ink-muted">เพิ่มฮีโร่และสกินใหม่อย่างต่อเนื่อง</p>
+        </section>
+      ) : null}
 
       {/* Pricing */}
       <section id="pricing" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-14">

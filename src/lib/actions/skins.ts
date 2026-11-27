@@ -305,6 +305,54 @@ export async function importCatalogAction(_prev: SkinFormState, formData: FormDa
   };
 }
 
+// The one "add" form on /admin/skins: a hero name and a skin name. The hero
+// is created when it doesn't exist yet (matched case-insensitively).
+export async function addHeroSkinAction(_prev: SkinFormState, formData: FormData): Promise<SkinFormState> {
+  await requireAdmin();
+
+  const clean = (value: FormDataEntryValue | null) => String(value ?? "").replace(/[|\r\n]/g, " ").trim();
+  const heroParsed = heroSchema.shape.name.safeParse(clean(formData.get("hero")));
+  if (!heroParsed.success) return { error: heroParsed.error.issues[0]?.message ?? "กรุณาใส่ชื่อฮีโร่" };
+  const skinParsed = skinSchema.shape.name.safeParse(clean(formData.get("skin")));
+  if (!skinParsed.success) return { error: skinParsed.error.issues[0]?.message ?? "กรุณาใส่ชื่อสกิน" };
+
+  let hero = await prisma.hero.findFirst({
+    where: { name: { equals: heroParsed.data, mode: "insensitive" } },
+    select: { id: true, name: true },
+  });
+  const heroIsNew = !hero;
+  if (!hero) {
+    try {
+      hero = await prisma.hero.create({ data: { name: heroParsed.data }, select: { id: true, name: true } });
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      hero = await prisma.hero.findFirst({
+        where: { name: { equals: heroParsed.data, mode: "insensitive" } },
+        select: { id: true, name: true },
+      });
+      if (!hero) return { error: "เพิ่มฮีโร่ไม่สำเร็จ ลองใหม่อีกครั้ง" };
+    }
+  }
+
+  const sameName = await prisma.skin.findFirst({
+    where: { heroId: hero.id, name: { equals: skinParsed.data, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (sameName) return { error: `${hero.name} มีสกิน "${skinParsed.data}" อยู่แล้ว` };
+
+  try {
+    await prisma.skin.create({ data: { name: skinParsed.data, tier: "NORMAL", heroId: hero.id } });
+  } catch (error) {
+    if (isUniqueViolation(error)) return { error: `${hero.name} มีสกิน "${skinParsed.data}" อยู่แล้ว` };
+    throw error;
+  }
+
+  revalidateSkinPages(hero.id);
+  return {
+    success: `เพิ่ม ${heroIsNew ? "ฮีโร่ใหม่ " : ""}${hero.name} · ${skinParsed.data} แล้ว — ใส่รูปได้ที่หน้าฮีโร่`,
+  };
+}
+
 // Sets (or replaces) only the picture of one skin. Used by the screenshot
 // cutter, which crops several skins out of one screenshot in a row.
 export async function setSkinImageAction(skinId: string, formData: FormData): Promise<SkinFormState> {

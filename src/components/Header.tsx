@@ -20,20 +20,22 @@ export async function Header() {
           <Logo />
         </Link>
 
-        <NavLinks />
+        <NavLinks guest={!session?.user} />
 
         {session?.user?.role === "ADMIN" ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 max-lg:ml-auto">
             <Link
               href="/admin"
               className="whitespace-nowrap rounded-full bg-violet px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
             >
               แอดมิน
             </Link>
-            <SignOutButton />
+            <span className="hidden sm:inline">
+              <SignOutButton />
+            </span>
           </div>
         ) : session?.user ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 max-lg:ml-auto">
             <Link
               href="/account"
               aria-label="บัญชีของฉัน / เติมคอยน์"
@@ -51,11 +53,11 @@ export async function Header() {
             </span>
           </div>
         ) : (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 max-lg:ml-auto">
             <Link href="/login" className="hidden text-sm text-ink-muted transition hover:text-gold sm:inline">
               เข้าสู่ระบบ
             </Link>
-            <Link href="/sort" className="btn-primary whitespace-nowrap px-3 py-1.5 text-sm">
+            <Link href="/sort" className="btn-primary hidden whitespace-nowrap px-3 py-1.5 text-sm sm:block">
               ทำป้ายเลย
             </Link>
           </div>

@@ -304,7 +304,7 @@ export function ImageCropper({
 }) {
   const surface = useRef<CropSurfaceHandle>(null);
   const aspect = refSize ? refSize.w / refSize.h : aspectProp;
-  const outWidth = refSize ? Math.min(900, Math.max(200, refSize.w)) : outWidthProp;
+  const outWidth = refSize ? Math.min(900, refSize.w) : outWidthProp;
   const [lock, setLock] = useState(mode === "fixed" || Boolean(refSize));
   const [zoom, setZoom] = useState(1);
   const [status, setStatus] = useState<{ ready: boolean; error: string | null }>({ ready: false, error: null });

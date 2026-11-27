@@ -134,7 +134,7 @@ export function ScreenshotCutter({ skins, refUrl = null }: { skins: CutterSkin[]
               file={file}
               aspect={refSize ? refSize.w / refSize.h : 0.7}
               lock={lock}
-              outWidth={refSize ? Math.min(900, Math.max(200, refSize.w)) : 480}
+              outWidth={refSize ? Math.min(900, refSize.w) : 480}
               zoom={zoom}
               onStatus={(status) => {
                 setReady(status.ready);

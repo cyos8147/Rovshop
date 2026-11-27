@@ -133,11 +133,9 @@ export const BANNER_WIDTH = 1080;
 export const BANNER_HEADER_HEIGHT = 600;
 const WIDTH = BANNER_WIDTH;
 const PAD = 48;
-const GAP = 12;
 
 function columnsFor(count: number) {
-  if (count <= 8) return 4;
-  if (count <= 20) return 5;
+  if (count <= 6) return Math.max(3, count); // a single row fills the width
   if (count <= 42) return 6;
   if (count <= 80) return 8;
   if (count <= 150) return 10;
@@ -200,6 +198,21 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) 
     else hi = mid - 1;
   }
   return text.slice(0, lo) + "…";
+}
+
+// Splits text on spaces into at most two lines that fit maxWidth; the second
+// line is shortened with "…" if it still does not fit.
+function wrapTwoLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.trim().split(/\s+/);
+  if (ctx.measureText(text).width <= maxWidth || words.length < 2) return [fitText(ctx, text, maxWidth)];
+  let first = words[0];
+  let i = 1;
+  while (i < words.length && ctx.measureText(`${first} ${words[i]}`).width <= maxWidth) {
+    first += ` ${words[i]}`;
+    i++;
+  }
+  const rest = words.slice(i).join(" ");
+  return rest ? [fitText(ctx, first, maxWidth), fitText(ctx, rest, maxWidth)] : [first];
 }
 
 function drawCover(
@@ -439,22 +452,30 @@ export async function renderBanner(canvas: HTMLCanvasElement, options: BannerOpt
   const { info, showNames } = design;
   const theme = BANNER_THEMES[design.theme] ?? BANNER_THEMES.royal;
 
-  const cols = design.skinsPerRow > 0 ? Math.min(12, Math.max(3, design.skinsPerRow)) : columnsFor(skins.length);
-  const tileW = (WIDTH - PAD * 2 - GAP * (cols - 1)) / cols;
-  const tileH = Math.round(tileW * 1.25);
-  const rows = Math.max(1, Math.ceil(skins.length / cols));
-
-  const headerH = BANNER_HEADER_HEIGHT;
-  const gridH = rows * tileH + (rows - 1) * GAP;
-  const footerH = info.contact || info.note ? 170 : 110;
-  const height = headerH + gridH + footerH;
-
   // Load all pictures before touching the canvas so the visible preview
   // never flashes half-drawn.
   const [bgImage, ...images] = await Promise.all([
     design.background ? loadImage(design.background) : null,
     ...skins.map((skin) => (skin.imageUrl ? loadImage(skin.imageUrl) : null)),
   ]);
+
+  // The grid runs edge to edge with no gaps. Each tile takes the shape of the
+  // skin pictures themselves (the middle shape if they differ), so nothing
+  // gets cropped much; skins without a picture use a typical card shape.
+  const cols = design.skinsPerRow > 0 ? Math.min(12, Math.max(3, design.skinsPerRow)) : columnsFor(skins.length);
+  const shapes = images
+    .filter((img): img is HTMLImageElement => Boolean(img))
+    .map((img) => img.naturalWidth / img.naturalHeight)
+    .sort((x, y) => x - y);
+  const tileAspect = shapes.length ? Math.min(1.2, Math.max(0.55, shapes[Math.floor(shapes.length / 2)])) : 0.72;
+  const tileW = WIDTH / cols;
+  const tileH = Math.round(tileW / tileAspect);
+  const rows = Math.max(1, Math.ceil(skins.length / cols));
+
+  const headerH = BANNER_HEADER_HEIGHT;
+  const gridH = rows * tileH;
+  const footerH = info.contact.trim() || info.note.trim() ? 130 : watermark ? 60 : 0;
+  const height = headerH + gridH + footerH;
 
   canvas.width = WIDTH;
   canvas.height = height;
@@ -468,62 +489,58 @@ export async function renderBanner(canvas: HTMLCanvasElement, options: BannerOpt
   drawHeader(ctx, design, skins, bgImage, font);
 
   // Skin grid
-  const radius = Math.max(6, tileW * 0.08);
-  const nameSize = Math.max(11, Math.round(tileW * 0.12));
-  const heroSize = Math.max(9, Math.round(tileW * 0.095));
-  const badgeSize = Math.max(10, Math.round(tileW * 0.11));
+  const nameSize = Math.max(12, Math.min(34, Math.round(tileW * 0.115)));
 
   skins.forEach((skin, index) => {
     const col = index % cols;
     const row = Math.floor(index / cols);
-    const x = PAD + col * (tileW + GAP);
-    const y = headerH + row * (tileH + GAP);
+    const x = Math.round((col * WIDTH) / cols);
+    const w = Math.round(((col + 1) * WIDTH) / cols) - x;
+    const y = headerH + row * tileH;
+    const h = tileH;
 
     ctx.save();
-    roundRect(ctx, x, y, tileW, tileH, radius);
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
     ctx.clip();
 
     const img = images[index];
     if (img) {
-      drawCover(ctx, img, x, y, tileW, tileH);
+      drawCover(ctx, img, x, y, w, h);
     } else {
       const hue = hashHue(skin.heroName + skin.name);
-      const fill = ctx.createLinearGradient(x, y, x + tileW, y + tileH);
+      const fill = ctx.createLinearGradient(x, y, x + w, y + h);
       fill.addColorStop(0, `hsl(${hue},55%,28%)`);
       fill.addColorStop(1, `hsl(${(hue + 50) % 360},55%,12%)`);
       ctx.fillStyle = fill;
-      ctx.fillRect(x, y, tileW, tileH);
+      ctx.fillRect(x, y, w, h);
       ctx.fillStyle = "rgba(255,255,255,0.18)";
-      ctx.font = `700 ${Math.round(tileW * 0.42)}px ${font}`;
+      ctx.font = `700 ${Math.round(w * 0.42)}px ${font}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(skin.heroName.slice(0, 1).toUpperCase(), x + tileW / 2, y + tileH * 0.42);
-      ctx.textAlign = "left";
+      ctx.fillText(skin.heroName.slice(0, 1).toUpperCase(), x + w / 2, y + h * 0.42);
     }
 
     if (showNames) {
-      const shade = ctx.createLinearGradient(0, y + tileH * 0.5, 0, y + tileH);
+      const shade = ctx.createLinearGradient(0, y + h * 0.62, 0, y + h);
       shade.addColorStop(0, "rgba(0,0,0,0)");
-      shade.addColorStop(1, "rgba(0,0,0,0.88)");
+      shade.addColorStop(1, "rgba(0,0,0,0.85)");
       ctx.fillStyle = shade;
-      ctx.fillRect(x, y + tileH * 0.5, tileW, tileH * 0.5);
+      ctx.fillRect(x, y + h * 0.62, w, h * 0.38);
 
-      const inner = tileW - 12;
+      // Skin name centred at the bottom, wrapped to at most two lines.
+      ctx.textAlign = "center";
       ctx.textBaseline = "alphabetic";
       ctx.fillStyle = "#ffffff";
       ctx.font = `600 ${nameSize}px ${font}`;
-      ctx.fillText(fitText(ctx, skin.name, inner), x + 6, y + tileH - heroSize - 10);
-      ctx.fillStyle = "rgba(255,255,255,0.7)";
-      ctx.font = `400 ${heroSize}px ${font}`;
-      ctx.fillText(fitText(ctx, skin.heroName, inner), x + 6, y + tileH - 6);
+      const lines = wrapTwoLines(ctx, skin.name, w - 12);
+      const lineH = Math.round(nameSize * 1.15);
+      lines.forEach((line, i) => {
+        ctx.fillText(line, x + w / 2, y + h - 10 - (lines.length - 1 - i) * lineH);
+      });
     }
     ctx.restore();
-
-    // Border (outside the clip so the stroke isn't halved)
-    roundRect(ctx, x, y, tileW, tileH, radius);
-    ctx.strokeStyle = theme.accent + "99";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    ctx.textAlign = "left";
   });
 
   if (skins.length === 0) {

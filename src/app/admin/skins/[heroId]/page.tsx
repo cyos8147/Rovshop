@@ -24,6 +24,12 @@ export default async function AdminHeroSkinsPage({
   });
   if (!hero) notFound();
 
+  // A picture already added (this hero first, then any hero): new crops use its size.
+  const refUrl =
+    hero.skins.find((skin) => skin.imageUrl)?.imageUrl ??
+    (await prisma.skin.findFirst({ where: { imageUrl: { not: null } }, select: { imageUrl: true } }))?.imageUrl ??
+    null;
+
   const missingCount = hero.skins.filter((skin) => !skin.imageUrl).length;
   const skins = hero.skins
     .filter((skin) => !onlyMissing || !skin.imageUrl)
@@ -44,6 +50,7 @@ export default async function AdminHeroSkinsPage({
       <AddSkinForm action={createSkinAction.bind(null, hero.id)} heroName={hero.name} />
 
       <ScreenshotCutter
+        refUrl={refUrl}
         skins={[...hero.skins]
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((skin) => ({ id: skin.id, name: skin.name, hasImage: Boolean(skin.imageUrl) }))}
@@ -66,6 +73,7 @@ export default async function AdminHeroSkinsPage({
             <SkinRow
               key={`${skin.id}-${skin.name}-${skin.tier}-${skin.imageUrl ?? ""}`}
               skin={skin}
+              refUrl={refUrl}
               updateAction={updateSkinAction.bind(null, skin.id)}
               deleteAction={deleteSkinAction.bind(null, skin.id)}
             />

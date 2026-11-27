@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CropSurface, type CropSurfaceHandle } from "@/components/ImageCropper";
+import { CropSurface, useImageSize, type CropSurfaceHandle } from "@/components/ImageCropper";
 import { setSkinImageAction } from "@/lib/actions/skins";
 
 type CutterSkin = { id: string; name: string; hasImage: boolean };
@@ -10,7 +10,7 @@ type CutterSkin = { id: string; name: string; hasImage: boolean };
 // Admin tool: pick ONE screenshot with several skin cards, then cut each card
 // out in turn. The crop box keeps its size between cards, so for a grid of
 // same-sized cards you only move it and press "ตัดและบันทึก" again.
-export function ScreenshotCutter({ skins }: { skins: CutterSkin[] }) {
+export function ScreenshotCutter({ skins, refUrl = null }: { skins: CutterSkin[]; refUrl?: string | null }) {
   const router = useRouter();
   const chooserRef = useRef<HTMLInputElement>(null);
   const surface = useRef<CropSurfaceHandle>(null);
@@ -18,7 +18,12 @@ export function ScreenshotCutter({ skins }: { skins: CutterSkin[] }) {
   const [file, setFile] = useState<File | null>(null);
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [targetId, setTargetId] = useState<string>("");
+  const refSize = useImageSize(refUrl);
   const [lock, setLock] = useState(false);
+  // Start locked to the size of the skin pictures already added.
+  useEffect(() => {
+    if (refSize) setLock(true);
+  }, [refSize]);
   const [zoom, setZoom] = useState(1);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -127,9 +132,9 @@ export function ScreenshotCutter({ skins }: { skins: CutterSkin[] }) {
             <CropSurface
               ref={surface}
               file={file}
-              aspect={4 / 5}
+              aspect={refSize ? refSize.w / refSize.h : 0.7}
               lock={lock}
-              outWidth={480}
+              outWidth={refSize ? Math.min(900, refSize.w) : 480}
               zoom={zoom}
               onStatus={(status) => {
                 setReady(status.ready);
@@ -173,10 +178,12 @@ export function ScreenshotCutter({ skins }: { skins: CutterSkin[] }) {
                   className="w-40 accent-[#e8b64a]"
                 />
               </label>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
-                <input type="checkbox" checked={lock} onChange={(event) => setLock(event.target.checked)} />
-                ล็อกสัดส่วน 4:5
-              </label>
+              {refSize ? (
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
+                  <input type="checkbox" checked={lock} onChange={(event) => setLock(event.target.checked)} />
+                  ขนาดเท่ารูปสกินที่ใส่แล้ว ({refSize.w}×{refSize.h})
+                </label>
+              ) : null}
               <button type="button" onClick={() => chooserRef.current?.click()} className="text-sm text-gold hover:underline">
                 เปลี่ยนภาพแคป
               </button>

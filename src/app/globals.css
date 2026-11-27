@@ -9,7 +9,7 @@
 
   /* Same faint diagonal lines on every page. */
   body {
-    background-color: #09061a;
+    background-color: #0b0b13;
     background-image: repeating-linear-gradient(
       118deg,
       transparent 0,
@@ -28,7 +28,7 @@
     height: 10px;
   }
   ::-webkit-scrollbar-track {
-    background: #09061a;
+    background: #0b0b13;
   }
   ::-webkit-scrollbar-thumb {
     background: #2a2a40;
@@ -62,7 +62,7 @@
     @apply w-full rounded-xl border border-border bg-bg-soft px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-violet focus:outline-none;
   }
   .btn-primary {
-    @apply rounded-lg bg-gold px-4 py-2.5 text-center font-semibold text-white transition hover:bg-[#a186ff] disabled:cursor-not-allowed disabled:opacity-60;
+    @apply rounded-lg bg-gold px-4 py-2.5 text-center font-semibold text-bg transition hover:bg-gold-soft disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-secondary {
     @apply rounded-lg border border-border px-4 py-2.5 text-center font-semibold text-ink transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60;

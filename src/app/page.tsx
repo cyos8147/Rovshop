@@ -71,7 +71,7 @@ export default async function HomePage() {
                 WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 40%)",
               }}
             />
-            <div className="absolute inset-0 bg-[#09061a]/55 md:hidden" />
+            <div className="absolute inset-0 bg-[#0b0b13]/55 md:hidden" />
           </div>
         ) : (
           <LogoMark className="pointer-events-none absolute right-[9%] top-1/2 hidden h-72 w-72 -translate-y-1/2 opacity-[0.16] md:block" />
@@ -139,7 +139,7 @@ export default async function HomePage() {
         <ol className="mt-8 grid gap-x-0 gap-y-8 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-border">
           {STEPS.map((step) => (
             <li key={step.n} className="lg:px-6 lg:first:pl-0 lg:last:pr-0">
-              <span className="font-display text-5xl font-extrabold leading-none text-gold/60">{step.n}</span>
+              <span className="font-display text-5xl font-extrabold leading-none text-gold/70">{step.n}</span>
               <h3 className="mt-3 font-semibold text-ink">{step.title}</h3>
               <p className="mt-1 text-sm leading-relaxed text-ink-muted">{step.desc}</p>
             </li>

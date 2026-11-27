@@ -19,7 +19,7 @@ export function BrandBackdrop() {
       {/* thin streaks */}
       <g stroke="#a58bff" strokeLinecap="round" fill="none">
         <line x1="380" y1="600" x2="760" y2="0" strokeOpacity="0.18" />
-        <line x1="640" y1="600" x2="1010" y2="0" strokeOpacity="0.28" />
+        <line x1="640" y1="600" x2="1010" y2="0" stroke="#e8b64a" strokeOpacity="0.4" />
         <line x1="900" y1="600" x2="1200" y2="110" strokeOpacity="0.2" />
         <line x1="1030" y1="600" x2="1200" y2="320" strokeOpacity="0.2" />
       </g>
@@ -27,7 +27,7 @@ export function BrandBackdrop() {
       <g fill="none" stroke="#a58bff">
         <circle cx="980" cy="330" r="250" strokeOpacity="0.3" strokeWidth="1.5" />
         <circle cx="980" cy="330" r="190" strokeOpacity="0.16" />
-        <path d="M730 330A250 250 0 0 1 980 80" strokeOpacity="0.7" strokeWidth="2" />
+        <path d="M730 330A250 250 0 0 1 980 80" stroke="#e8b64a" strokeOpacity="0.85" strokeWidth="2" />
       </g>
       <rect x="40" y="120" width="140" height="84" fill="url(#bb-dots)" />
       <rect x="1000" y="470" width="150" height="90" fill="url(#bb-dots)" />

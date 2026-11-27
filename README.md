@@ -98,16 +98,19 @@ npm run dev
 
 ### 1. ตั้งค่า Supabase (ฐานข้อมูล + ที่เก็บรูป)
 
-1. ไปที่โปรเจกต์ Supabase ของคุณ → **Settings → Database → Connection string**
-   - คัดลอกแบบ **Transaction** (มี `pgbouncer=true`, พอร์ต 6543) ไว้ใช้เป็น `DATABASE_URL`
-   - คัดลอกแบบ **Session pooler** (พอร์ต 5432) ไว้ใช้เป็น `DIRECT_URL` — ไม่ใช่ Direct connection (IPv6 ใช้กับ Render ไม่ได้)
-2. ไปที่ **Settings → API** → คัดลอก **Project URL** (ใช้เป็น `NEXT_PUBLIC_SUPABASE_URL`) และ **service_role key** (ใช้เป็น `SUPABASE_SERVICE_ROLE_KEY` — คีย์นี้ลับ ห้ามเผยแพร่)
+1. ไปที่โปรเจกต์ Supabase → กดปุ่ม **Connect** (แถบบนสุด) → แท็บ **Direct** (หรือแท็บ **ORM** → Prisma) → เลือก **Session pooler** (พอร์ต **5432**) แล้วคัดลอกลิงก์ — ใช้**ลิงก์ Session pooler ตัวเดียวกัน**เป็นทั้ง `DATABASE_URL` และ `DIRECT_URL`
+   - รูปแบบ: `postgresql://postgres.<รหัสโปรเจกต์>:<รหัสผ่าน>@aws-<n>-<ภูมิภาค>.pooler.supabase.com:5432/postgres`
+   - แทน `[YOUR-PASSWORD]` ด้วยรหัสผ่านฐานข้อมูล (ลบวงเล็บ `[ ]` ด้วย) ถ้ารหัสมีอักขระพิเศษ เช่น `+` ต้องแปลงเป็น `%2B` — หรือกด **Reset database password** แล้วให้ระบบสุ่มรหัสที่มีแต่ตัวอักษร/ตัวเลข จะได้ไม่ต้องแปลง
+   - ❌ **ไม่ใช้ Direct connection** (IPv6 — Render เชื่อมไม่ได้) และ**ยังไม่ใช้ Transaction pooler (6543)** เพราะ Supabase แจ้งว่าใช้ IPv6 เป็นค่าเริ่มต้น เว็บนี้รันเป็นเซิร์ฟเวอร์ตัวเดียว Session pooler เพียงพอ
+2. ไปที่ **Project Settings → API Keys**: คัดลอก **Secret key** (ขึ้นต้น `sb_secret_` — ถ้าไม่มีให้ใช้ `service_role` ในแท็บ Legacy) ใช้เป็น `SUPABASE_SERVICE_ROLE_KEY` และคัดลอก **Project URL** (`https://<รหัสโปรเจกต์>.supabase.co`) ใช้เป็น `NEXT_PUBLIC_SUPABASE_URL` — Secret key เป็นความลับ ห้ามโพสต์/ส่งใคร (Publishable key `sb_publishable_` เว็บนี้ไม่ใช้)
 3. ไปที่ **Storage** → สร้าง bucket ใหม่ชื่อ `product-images` → เปิด **Public bucket** (เพื่อให้รูปแสดงบนเว็บได้โดยตรง)
 4. สร้างอีก bucket ชื่อ `payment-slips` → **ปิด** Public bucket (สลิปมีชื่อ/เลขบัญชีลูกค้า แอดมินดูผ่านลิงก์ชั่วคราวเท่านั้น)
+5. (ไม่บังคับ) สมัคร [SlipOK](https://slipok.com) เพื่อตรวจสลิปอัตโนมัติ แล้วนำ Branch ID และ API Key มาใส่ `SLIPOK_BRANCH_ID` / `SLIPOK_API_KEY` — ในหน้าตั้งค่าของ SlipOK ควรตั้งบัญชีผู้รับให้ตรงกับพร้อมเพย์ของร้าน เพื่อให้ระบบปฏิเสธสลิปที่โอนเข้าบัญชีอื่น
 6. (ไม่บังคับ) แจ้งเตือนแอดมิน:
    - **Telegram:** คุยกับ [@BotFather](https://t.me/BotFather) → `/newbot` → ได้ token, ส่งข้อความหาบอทของตัวเอง 1 ครั้ง แล้วเปิด `https://api.telegram.org/bot<TOKEN>/getUpdates` ดูเลข `chat.id` → ใส่ `TELEGRAM_BOT_TOKEN` และ `TELEGRAM_CHAT_ID`
    - **Discord:** ตั้งค่าช่อง → Integrations → Webhooks → New Webhook → Copy Webhook URL → ใส่ `DISCORD_WEBHOOK_URL`
-5. (ไม่บังคับ) สมัคร [SlipOK](https://slipok.com) เพื่อตรวจสลิปอัตโนมัติ แล้วนำ Branch ID และ API Key มาใส่ `SLIPOK_BRANCH_ID` / `SLIPOK_API_KEY` — ในหน้าตั้งค่าของ SlipOK ควรตั้งบัญชีผู้รับให้ตรงกับพร้อมเพย์ของร้าน เพื่อให้ระบบปฏิเสธสลิปที่โอนเข้าบัญชีอื่น
+
+> ภูมิภาคของ Supabase เลือกเอเชียตัวไหนก็ได้ (เช่น Tokyo/Singapore) ส่วน Render เลือก **Singapore** — อยู่ใกล้กัน ตอบสนองเร็วพอ
 
 ### 2. Deploy บน Render
 
@@ -132,14 +135,14 @@ npm run dev
    | ชื่อตัวแปร | ค่า |
    | --- | --- |
    | `NODE_VERSION` | `22` |
-   | `DATABASE_URL` | connection string แบบ Transaction จาก Supabase |
-   | `DIRECT_URL` | connection string แบบ **Session pooler** (พอร์ต 5432) จาก Supabase — **อย่าใช้แบบ Direct connection** เพราะเป็น IPv6 ซึ่ง Render เชื่อมไม่ได้ |
+   | `DATABASE_URL` | ลิงก์ **Session pooler** จากข้อ 1 **ต่อท้ายด้วย** `?connection_limit=5` (จำกัดจำนวนการเชื่อมต่อให้พอดีกับแผนฟรีของ Supabase) |
+   | `DIRECT_URL` | ลิงก์ **Session pooler** ตัวเดียวกัน (ไม่ต้องต่อท้ายอะไร) ใช้สำหรับสร้าง/อัปเดตตาราง |
    | `NEXTAUTH_SECRET` | สุ่มค่าใหม่ด้วย `openssl rand -base64 32` |
-   | `NEXTAUTH_URL` | ลิงก์เว็บจริง เช่น `https://ชื่อเว็บ.onrender.com` (ดูได้ที่หัวหน้าเว็บบน Render หลังสร้าง แล้วกลับมาแก้ให้ตรง) |
+   | `NEXTAUTH_URL` | ลิงก์เว็บจริง เช่น `https://ชื่อเว็บ.onrender.com` — **ข้ามได้ตอน deploy ครั้งแรก** (ถ้าไม่ใส่ ระบบใช้ลิงก์ที่ Render กำหนดให้เองจาก `RENDER_EXTERNAL_URL`) แต่**ต้องใส่เมื่อผูกโดเมนของตัวเอง** |
    | `SEED_ADMIN_EMAIL` | อีเมลแอดมินที่ต้องการ |
    | `SEED_ADMIN_PASSWORD` | รหัสผ่านแอดมิน อย่างน้อย 10 ตัว ห้ามใช้ `Admin1234!` (ระบบจะไม่ยอมสร้าง) |
    | `NEXT_PUBLIC_SUPABASE_URL` | Project URL จาก Supabase |
-   | `SUPABASE_SERVICE_ROLE_KEY` | service_role key จาก Supabase |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Secret key จาก Supabase (`sb_secret_…` หรือ `service_role`) |
    | `SUPABASE_STORAGE_BUCKET` | `product-images` |
    | `SUPABASE_SLIP_BUCKET` | `payment-slips` |
    | `SLIPOK_BRANCH_ID` | Branch ID จาก SlipOK (ไม่บังคับ) |

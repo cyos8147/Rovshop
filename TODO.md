@@ -10,11 +10,14 @@
 5. (ไม่บังคับ) เปิด SlipOK ตรวจสลิปอัตโนมัติ, ตั้งแจ้งเตือน Telegram/Discord
 
 ## ก่อนเปิดเว็บจริง
-- [ ] รวม branch เข้า `main`
+- [x] รวม branch เข้า `main` (PR #1)
+- [x] Supabase: ลิงก์ Session pooler, bucket `product-images` (public) และ `payment-slips` (ไม่ public)
 - [ ] Deploy บน Render แผน Free (ดูหัวข้อ Deploy ใน README)
-- [ ] ตั้ง cron-job.org ยิง `/api/health` ทุก 10 นาที กันเว็บหลับ — มีบริการ Free ได้แค่ตัวเดียวใน workspace
-- [ ] เมื่อมีรายได้: อัปเกรด Render เป็น Starter แล้วเลิกใช้บอท
-- [ ] Supabase: bucket `product-images` (public) และ `payment-slips` (ไม่ public)
 - [ ] ตั้ง `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` (≥10 ตัว) ใน Render — แอดมินถูกสร้างตอน deploy
+- [ ] **เปลี่ยน Supabase Secret key ก่อนเปิดให้ลูกค้าจริงเติมคอยน์** — คีย์เดิมเคยถูกวางในแชท: Project Settings → API Keys → Create new secret key → แก้ `SUPABASE_SERVICE_ROLE_KEY` ใน Render → ลบคีย์เก่า
+- [ ] หลัง deploy ทดสอบ: เข้าแอดมิน → เพิ่มฮีโร่พร้อมอัปโหลดรูป (ทดสอบ Storage กับคีย์ `sb_secret_`; ถ้า error ให้ลองคีย์ `service_role` แบบ Legacy) → สมัครสมาชิก → เติม 20 บาท → ส่งสลิป (ทดสอบ bucket `payment-slips`) → อนุมัติ → ทำป้ายดาวน์โหลด
 - [ ] เข้าแอดมิน: ใส่เลขพร้อมเพย์ ตรวจราคา ลิงก์ Facebook
-- [ ] ลบ/แก้ฮีโร่และสกินตัวอย่างจาก seed ให้เป็นข้อมูลจริง
+- [ ] เพิ่มฮีโร่และสกินจริงที่เมนูคลังสกิน (deploy จริงไม่มีข้อมูลตัวอย่าง คลังเริ่มว่าง)
+- [ ] ตั้ง cron-job.org ยิง `/api/health` ทุก 10 นาที กันเว็บหลับ — มีบริการ Free ได้แค่ตัวเดียวใน workspace
+- [ ] ตัดการเชื่อม Vercel ที่เคยผูกกับ repo (โปรเจกต์ `rovshop` ขึ้น Error ทุก PR/commit): Vercel → Project → Settings → Git → Disconnect
+- [ ] เมื่อมีรายได้: อัปเกรด Render เป็น Starter แล้วเลิกใช้บอท

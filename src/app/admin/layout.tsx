@@ -27,10 +27,34 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               จัดการไอดี
             </Link>
             <Link
+              href="/admin/skins"
+              className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
+            >
+              คลังสกิน
+            </Link>
+            <Link
+              href="/admin/payments"
+              className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
+            >
+              การชำระเงิน
+            </Link>
+            <Link
+              href="/admin/members"
+              className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
+            >
+              สมาชิก
+            </Link>
+            <Link
               href="/admin/settings"
               className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
             >
               ตั้งค่าร้าน
+            </Link>
+            <Link
+              href="/password"
+              className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
+            >
+              เปลี่ยนรหัสผ่าน
             </Link>
           </nav>
         </aside>

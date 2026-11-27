@@ -232,7 +232,7 @@ export function AccountForm({ action, defaultValues, existingImages = [], submit
           </div>
         ) : null}
         <div>
-          <label className="mb-1 block text-sm text-ink-muted">เพิ่มรูปภาพใหม่ (JPG, PNG, WEBP ไม่เกิน 5MB ต่อไฟล์)</label>
+          <label className="mb-1 block text-sm text-ink-muted">เพิ่มรูปภาพใหม่ (JPG, PNG, WEBP ไม่เกิน 4MB ต่อไฟล์ รวมทั้งหมดไม่เกิน 6MB ต่อครั้ง)</label>
           <input
             type="file"
             name="images"

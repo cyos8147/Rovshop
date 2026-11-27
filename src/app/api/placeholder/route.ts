@@ -18,7 +18,7 @@ function clamp(value: number, min: number, max: number): number {
 // screenshots so the repo doesn't need to ship binary sample images).
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const text = escapeXml((searchParams.get("text") ?? "RoV Shop").slice(0, 60));
+  const text = escapeXml((searchParams.get("text") ?? "OSCAR").slice(0, 60));
   const hue = clamp(Number(searchParams.get("hue") ?? 260), 0, 360);
   const width = clamp(Number(searchParams.get("w") ?? 800), 50, 2000);
   const height = clamp(Number(searchParams.get("h") ?? 500), 50, 2000);

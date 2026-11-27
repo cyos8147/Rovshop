@@ -14,13 +14,44 @@ generator client {
 // allowed value unions (Role, AccountStatus, LoginType).
 
 model User {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String     @unique
   phone        String?
   passwordHash String
-  role         String   @default("ADMIN")
-  createdAt    DateTime @default(now())
+  role         String     @default("ADMIN")
+  // Banner-tool wallet (role MEMBER), in hundredths of a coin so prices
+  // like 0.3 coin/skin stay exact integers. 1 coin = 1 THB.
+  coinCents    Int        @default(0)
+  // Monthly plan (bought with coins): downloads are free while in the future.
+  paidUntil    DateTime?
+  payments     Payment[]
+  downloads    Download[]
+  createdAt    DateTime   @default(now())
+}
+
+// A coin top-up: the slip a member uploaded. Auto-approved when SlipOK
+// verifies it, otherwise PENDING until an admin approves/rejects it.
+// Approval credits `amount` THB as `amount` coins.
+model Payment {
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  amount     Int
+  // PENDING | APPROVED | REJECTED (see PAYMENT_STATUSES in src/lib/types.ts)
+  status     String    @default("PENDING")
+  // Bank transaction reference from the slip. Unique so the same slip can
+  // never be redeemed twice.
+  transRef   String?   @unique
+  // Path inside the private slip bucket (never a public URL).
+  slipPath   String?
+  senderName String?
+  note       String?
+  reviewedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([status])
+  @@index([userId])
 }
 
 model GameAccount {
@@ -66,9 +97,63 @@ model Testimonial {
   createdAt DateTime @default(now())
 }
 
+// One paid banner download (the coins it cost).
+model Download {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  skinCount Int
+  costCents Int
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
 // Single-row site settings. Always read/written with id = "main".
 model Settings {
-  id         String   @id
-  contactUrl String   @default("https://www.facebook.com/")
-  updatedAt  DateTime @updatedAt
+  id               String   @id
+  contactUrl       String   @default("https://www.facebook.com/")
+  // Banner-tool pricing (coin hundredths; 1 coin = 1 THB). promptpayId is
+  // a phone number, citizen/tax ID or e-wallet ID; empty = top-ups off.
+  promptpayId      String   @default("")
+  promptpayName    String   @default("")
+  skinPriceCents   Int      @default(30)
+  noWatermarkCents Int      @default(500)
+  signupBonusCents Int      @default(0)
+  minTopup         Int      @default(20)
+  // Monthly unlimited plan, paid with coins. planPrice 0 = plan not offered.
+  planPrice        Int      @default(199)
+  planDays         Int      @default(30)
+  updatedAt        DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Skin sorter (/sort): the hero/skin catalog customers pick from to build a
+// single "ID for sale" banner image. Images are optional — tiles without one
+// fall back to a generated placeholder so the catalog can be filled in by
+// name first and illustrated later.
+
+model Hero {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  role      String   @default("FIGHTER")
+  imageUrl  String?
+  skins     Skin[]
+  createdAt DateTime @default(now())
+}
+
+model Skin {
+  id        String   @id @default(cuid())
+  name      String
+  // See SKIN_TIERS in src/lib/types.ts (plain string, no migration needed
+  // to add a tier).
+  tier      String   @default("A")
+  imageUrl  String?
+  hero      Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  heroId    String
+  createdAt DateTime @default(now())
+
+  @@unique([heroId, name])
+  @@index([tier])
 }

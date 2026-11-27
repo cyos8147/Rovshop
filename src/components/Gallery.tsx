@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export function Gallery({ images, title }: { images: string[]; title: string }) {
   const [active, setActive] = useState(0);
-  const shown = images.length > 0 ? images : ["/api/placeholder?text=RoVShop&hue=260"];
+  const shown = images.length > 0 ? images : ["/api/placeholder?text=OSCAR&hue=260"];
 
   return (
     <div>

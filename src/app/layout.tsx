@@ -15,11 +15,11 @@ const kanit = Kanit({
 
 export const metadata: Metadata = {
   title: {
-    default: "RoVShop — ซื้อขายไอดีเกม RoV ปลอดภัย ส่งไว",
-    template: "%s | RoVShop",
+    default: "OSCAR Gaming images — ทำป้ายขายไอดีเกม เรียงสกินอัตโนมัติ",
+    template: "%s | OSCAR Gaming images",
   },
   description:
-    "ร้านขายไอดีเกม RoV (Arena of Valor) แรงค์สูง สกินหายาก ราคาคุ้มค่า ตรวจสอบสเปกได้ก่อนซื้อ",
+    "เว็บทำป้ายขายไอดีเกม RoV เลือกสกิน เรียงตามความหายาก แล้วได้ภาพเดียวพร้อมโพสต์ จัดฟรี จ่ายเมื่อดาวน์โหลด",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

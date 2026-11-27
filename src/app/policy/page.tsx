@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "นโยบายการให้บริการ" };
+export const metadata: Metadata = { title: "นโยบายร้านขายไอดี" };
 
 const sections = [
   {
@@ -38,7 +38,13 @@ const sections = [
 export default function PolicyPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="text-2xl font-bold text-ink">นโยบายการให้บริการ</h1>
+      <h1 className="text-2xl font-bold text-ink">นโยบายร้านขายไอดี</h1>
+      <p className="mt-1 text-sm text-ink-muted">
+        สำหรับการซื้อไอดีจากร้าน — บริการทำป้ายดูที่{" "}
+        <a href="/terms" className="text-gold hover:underline">
+          เงื่อนไขการใช้บริการ
+        </a>
+      </p>
       <div className="mt-6 space-y-6">
         {sections.map((section) => (
           <div key={section.title} className="card p-5">

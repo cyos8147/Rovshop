@@ -8,7 +8,7 @@ const ALLOWED_IMAGE_MIME: Record<string, string> = {
   "image/webp": "webp",
 };
 
-export const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+export const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB (Server Action request limit is 6 MB, see next.config.js)
 
 function getSupabaseAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -27,7 +27,9 @@ function getSupabaseAdminClient() {
 // to Supabase Storage under a freshly generated random name (never the
 // client-supplied filename/extension) so an upload can't be used for path
 // traversal or to smuggle in an executable/HTML file served from our bucket.
-export async function saveUploadedImage(file: File): Promise<string> {
+// Throws a user-facing error unless the file is a JPG/PNG/WEBP of 1B–4MB;
+// returns the extension to store it under.
+export function validateImageFile(file: File): string {
   const extension = ALLOWED_IMAGE_MIME[file.type];
   if (!extension) {
     throw new Error("รองรับเฉพาะไฟล์รูปภาพ JPG, PNG หรือ WEBP");
@@ -36,8 +38,13 @@ export async function saveUploadedImage(file: File): Promise<string> {
     throw new Error("ไฟล์รูปภาพว่างเปล่า");
   }
   if (file.size > MAX_IMAGE_SIZE) {
-    throw new Error("ไฟล์รูปภาพต้องมีขนาดไม่เกิน 5MB ต่อไฟล์");
+    throw new Error("ไฟล์รูปภาพต้องมีขนาดไม่เกิน 4MB ต่อไฟล์");
   }
+  return extension;
+}
+
+export async function saveUploadedImage(file: File): Promise<string> {
+  const extension = validateImageFile(file);
 
   const bucket = process.env.SUPABASE_STORAGE_BUCKET || "product-images";
   const filename = `${randomUUID()}.${extension}`;
@@ -55,4 +62,34 @@ export async function saveUploadedImage(file: File): Promise<string> {
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(filename);
   return data.publicUrl;
+}
+
+// Payment slips contain names and partial account numbers, so they go to a
+// separate PRIVATE bucket and are only ever shown to admins through
+// short-lived signed URLs. Returns the object path (not a URL).
+function slipBucket() {
+  return process.env.SUPABASE_SLIP_BUCKET || "payment-slips";
+}
+
+export async function savePrivateSlip(file: File): Promise<string> {
+  const extension = validateImageFile(file);
+  const path = `${new Date().toISOString().slice(0, 7)}/${randomUUID()}.${extension}`;
+  const bytes = Buffer.from(await file.arrayBuffer());
+
+  const { error } = await getSupabaseAdminClient()
+    .storage.from(slipBucket())
+    .upload(path, bytes, { contentType: file.type, upsert: false });
+  if (error) throw new Error("บันทึกรูปสลิปไม่สำเร็จ");
+  return path;
+}
+
+export async function signedSlipUrl(path: string): Promise<string | null> {
+  try {
+    const { data } = await getSupabaseAdminClient()
+      .storage.from(slipBucket())
+      .createSignedUrl(path, 60 * 60);
+    return data?.signedUrl ?? null;
+  } catch {
+    return null;
+  }
 }

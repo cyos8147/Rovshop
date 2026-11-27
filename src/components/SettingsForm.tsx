@@ -15,11 +15,11 @@ export function SettingsForm({ defaultContactUrl }: { defaultContactUrl: string 
       ) : null}
       {state.success ? (
         <p className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
-          บันทึกเรียบร้อย ลูกค้าจะกดปุ่มไปแชทที่ลิงก์นี้ทันที
+          บันทึกเรียบร้อย ลิงก์ติดต่อแอดมินบนเว็บเปลี่ยนแล้ว
         </p>
       ) : null}
       <div>
-        <label className="mb-1 block text-sm text-ink-muted">ลิงก์ Facebook สำหรับให้ลูกค้าแชทมาสั่งซื้อ</label>
+        <label className="mb-1 block text-sm text-ink-muted">ลิงก์ติดต่อแอดมิน (Facebook / Line)</label>
         <input
           type="url"
           name="contactUrl"
@@ -29,7 +29,7 @@ export function SettingsForm({ defaultContactUrl }: { defaultContactUrl: string 
           className="input"
         />
         <p className="mt-1 text-xs text-ink-muted">
-          วางลิงก์โปรไฟล์หรือเพจ Facebook ที่ต้องการให้ลูกค้ากดแชทหาได้เลย เช่น
+          วางลิงก์โปรไฟล์หรือเพจที่ให้ลูกค้าติดต่อได้ เช่น
           https://www.facebook.com/yourname หรือ https://m.me/yourname
         </p>
       </div>

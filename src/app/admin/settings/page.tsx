@@ -14,7 +14,7 @@ export default async function AdminSettingsPage() {
     <div>
       <h1 className="text-2xl font-bold text-ink">ตั้งค่าร้าน</h1>
       <p className="mt-1 text-sm text-ink-muted">
-        ลูกค้าที่สนใจไอดีจะกดปุ่ม &quot;แชทกับแอดมินเพื่อสั่งซื้อ&quot; ในหน้ารายละเอียดไอดี แล้วเด้งไปที่ลิงก์นี้ทันที
+        ช่องทางติดต่อแอดมิน (แสดงท้ายเว็บ หน้าเงื่อนไขการใช้บริการ และนโยบายความเป็นส่วนตัว) พร้อมราคาคอยน์และการรับเงินด้านล่าง
       </p>
       <div className="mt-6 max-w-xl">
         <SettingsForm defaultContactUrl={settings.contactUrl} />

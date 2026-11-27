@@ -1,8 +1,5 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { AccountCard } from "@/components/AccountCard";
-import { RatingStars } from "@/components/RatingStars";
-import { primaryImage } from "@/lib/images";
 import { getSettings } from "@/lib/settings";
 import { formatCoins } from "@/lib/coins";
 import { SKIN_TIER_COLORS, SKIN_TIER_LABELS, type SkinTier } from "@/lib/types";
@@ -11,17 +8,7 @@ import { SKIN_TIER_COLORS, SKIN_TIER_LABELS, type SkinTier } from "@/lib/types";
 const MOCK_TILES: SkinTier[] = ["SSS", "SSS", "SS", "SS", "S_PLUS", "S_PLUS", "S", "S", "A", "LIMITED", "A", "NORMAL"];
 
 export default async function HomePage() {
-  const [featured, testimonials, settings, skinCount] = await Promise.all([
-    prisma.gameAccount.findMany({
-      where: { status: "AVAILABLE" },
-      orderBy: { createdAt: "desc" },
-      take: 3,
-      include: { images: { orderBy: { position: "asc" }, take: 1 } },
-    }),
-    prisma.testimonial.findMany({ orderBy: { createdAt: "desc" }, take: 2 }),
-    getSettings(),
-    prisma.skin.count(),
-  ]);
+  const [settings, skinCount] = await Promise.all([getSettings(), prisma.skin.count()]);
 
   const c = (cents: number) => formatCoins(cents);
 
@@ -161,54 +148,6 @@ export default async function HomePage() {
           </Link>
         </div>
       </section>
-
-      {/* ID shop (secondary) */}
-      {featured.length > 0 ? (
-        <section className="mx-auto max-w-6xl px-4 py-10">
-          <div className="flex items-end justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-ink">ไอดีขายจากร้าน</h2>
-              <p className="text-sm text-ink-muted">ไอดีที่ร้านคัดมาขายเอง ตรวจสอบสเปกได้ก่อนซื้อ</p>
-            </div>
-            <Link href="/accounts" className="text-sm font-medium text-gold hover:underline">
-              ดูทั้งหมด →
-            </Link>
-          </div>
-          <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {featured.map((account) => (
-              <AccountCard
-                key={account.id}
-                slug={account.slug}
-                title={account.title}
-                price={account.price}
-                discountPrice={account.discountPrice}
-                rank={account.rank}
-                heroCount={account.heroCount}
-                skinCount={account.skinCount}
-                server={account.server}
-                loginType={account.loginType}
-                status={account.status}
-                image={primaryImage(account.images, account.title)}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {testimonials.length > 0 ? (
-        <section className="mx-auto max-w-6xl px-4 pb-16">
-          <h2 className="text-xl font-bold text-ink">รีวิวจากลูกค้าร้าน</h2>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            {testimonials.map((t) => (
-              <div key={t.id} className="card p-5">
-                <RatingStars rating={t.rating} />
-                <p className="mt-2 text-sm text-ink-muted">&ldquo;{t.comment}&rdquo;</p>
-                <p className="mt-3 text-sm font-medium text-ink">— {t.name}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }

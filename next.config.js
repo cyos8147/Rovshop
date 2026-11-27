@@ -8,6 +8,16 @@ if (!process.env.NEXTAUTH_URL && process.env.RENDER_EXTERNAL_URL) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The ID shop was removed; send old links somewhere useful.
+  async redirects() {
+    return [
+      { source: "/accounts", destination: "/sort", permanent: true },
+      { source: "/accounts/:path*", destination: "/sort", permanent: true },
+      { source: "/policy", destination: "/terms", permanent: true },
+      { source: "/admin/accounts/:path*", destination: "/admin", permanent: true },
+      { source: "/admin/accounts", destination: "/admin", permanent: true },
+    ];
+  },
   experimental: {
     serverActions: {
       // Default is 1 MB, which rejects most phone screenshots of payment

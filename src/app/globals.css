@@ -62,10 +62,10 @@
     @apply w-full rounded-xl border border-border bg-bg-soft px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-violet focus:outline-none;
   }
   .btn-primary {
-    @apply rounded-xl bg-gold px-4 py-2.5 text-center font-semibold text-white transition hover:bg-[#a186ff] disabled:cursor-not-allowed disabled:opacity-60;
+    @apply rounded-lg bg-gold px-4 py-2.5 text-center font-semibold text-white transition hover:bg-[#a186ff] disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-secondary {
-    @apply rounded-xl border border-border px-4 py-2.5 text-center font-semibold text-ink transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60;
+    @apply rounded-lg border border-border px-4 py-2.5 text-center font-semibold text-ink transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-danger {
     @apply rounded-xl border border-rose-500/40 px-4 py-2.5 text-center font-semibold text-rose-300 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60;

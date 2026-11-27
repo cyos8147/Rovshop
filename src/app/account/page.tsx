@@ -55,7 +55,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
     <div className="mx-auto max-w-4xl px-4 py-10">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="border-l-4 border-gold pl-4 text-2xl font-bold text-ink">บัญชีของฉัน</h1>
+          <h1 className="text-2xl font-bold text-ink">บัญชีของฉัน</h1>
           <p className="mt-1 truncate text-sm text-ink-muted">
             {user.email} ·{" "}
             <Link href="/password" className="text-gold hover:underline">
@@ -74,7 +74,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </p>
         </div>
         <Link href="/sort" className="btn-primary">
-          ไปทำป้าย →
+          ไปทำป้าย
         </Link>
       </div>
 

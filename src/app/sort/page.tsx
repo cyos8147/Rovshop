@@ -29,12 +29,12 @@ export default async function SortPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 pt-8">
       <div className="mb-4">
-        <h1 className="border-l-4 border-gold pl-4 text-2xl font-bold text-ink sm:text-3xl">
-          เรียงสกิน <span className="text-gold">ทำป้าย RoV</span>
+        <h1 className="text-2xl font-bold text-ink sm:text-3xl">
+          ทำป้ายสกิน RoV
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
-          เลือกสกิน → พื้นหลัง → ข้อมูลไอดี → ชำระเงิน ได้ภาพเดียวพร้อมโพสต์ · จัดและดูตัวอย่างฟรี จ่ายตอนดาวน์โหลด ·{" "}
-          {heroes.length} ฮีโร่ · {skinCount.toLocaleString("th-TH")} สกินในคลัง
+          เลือกสกิน ตกแต่ง แล้วดาวน์โหลดเป็นภาพเดียวพร้อมโพสต์ จัดและดูตัวอย่างได้ฟรี จ่ายตอนดาวน์โหลด
+          มี {heroes.length} ฮีโร่ {skinCount.toLocaleString("th-TH")} สกินให้เลือก
         </p>
       </div>
       <SkinSorter

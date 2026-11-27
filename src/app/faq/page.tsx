@@ -49,7 +49,7 @@ export default async function FaqPage() {
   const settings = await getSettings();
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="border-l-4 border-gold pl-4 text-2xl font-bold text-ink">คำถามที่พบบ่อย</h1>
+      <h1 className="text-2xl font-bold text-ink">คำถามที่พบบ่อย</h1>
       <FaqList items={bannerFaqs(settings)} />
       <p className="mt-3 text-xs text-ink-muted">
         อ่านเพิ่มเติม:{" "}

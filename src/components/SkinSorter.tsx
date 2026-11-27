@@ -408,7 +408,7 @@ export function SkinSorter({
                 disabled={tab === "pick" && ordered.length === 0}
                 className="btn-primary"
               >
-                ถัดไป: {STEPS[stepIndex].short} →
+                ถัดไป: {STEPS[stepIndex].short}
               </button>
             ) : null}
           </div>

@@ -27,7 +27,7 @@ export default async function RegisterPage({
         สมัครสมาชิก{bonus ? <> รับฟรี <span className="text-gold">{bonus} คอยน์</span></> : null}
       </h1>
       <p className="mt-2 text-center text-sm text-ink-muted">
-        สมัครด้วยอีเมล ไม่มีรายเดือน · จ่ายเฉพาะตอนดาวน์โหลด {formatCoins(settings.skinPriceCents)} คอยน์ต่อสกิน
+        สมัครด้วยอีเมล ไม่มีค่ารายเดือน จ่ายเฉพาะตอนดาวน์โหลด {formatCoins(settings.skinPriceCents)} คอยน์ต่อสกิน
       </p>
       <div className="mt-6">
         <RegisterForm callbackUrl={callbackUrl} bonusText={bonus} />

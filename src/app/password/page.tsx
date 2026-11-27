@@ -16,7 +16,7 @@ export default async function PasswordPage() {
       <Link href={back} className="text-sm text-ink-muted hover:text-gold">
         ← กลับ
       </Link>
-      <h1 className="mt-2 border-l-4 border-gold pl-4 text-2xl font-bold text-ink">เปลี่ยนรหัสผ่าน</h1>
+      <h1 className="mt-2 text-2xl font-bold text-ink">เปลี่ยนรหัสผ่าน</h1>
       <p className="mt-1 text-sm text-ink-muted">{session.user.email}</p>
       <div className="mt-6">
         <ChangePasswordForm />

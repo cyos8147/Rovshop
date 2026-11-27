@@ -3,7 +3,7 @@
 // single source of truth for each "enum-like" column, shared between
 // server actions, forms, and seed data.
 
-export const ROLES = ["ADMIN"] as const;
+export const ROLES = ["ADMIN", "MEMBER"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ACCOUNT_STATUSES = ["AVAILABLE", "RESERVED", "SOLD"] as const;
@@ -80,4 +80,15 @@ export const HERO_ROLE_LABELS: Record<HeroRole, string> = {
   MAGE: "เมจ",
   CARRY: "แครี่",
   SUPPORT: "ซัพพอร์ต",
+};
+
+// --- Banner-tool membership ---------------------------------------------------
+
+export const PAYMENT_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  PENDING: "รอตรวจสอบ",
+  APPROVED: "อนุมัติแล้ว",
+  REJECTED: "ไม่อนุมัติ",
 };

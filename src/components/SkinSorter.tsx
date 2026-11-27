@@ -56,14 +56,24 @@ function tierColor(tier: string) {
   return SKIN_TIER_COLORS[tier as SkinTier] ?? SKIN_TIER_COLORS.NORMAL;
 }
 
+export type SorterAccess = {
+  state: "guest" | "trial" | "paid" | "expired" | "admin";
+  daysLeft: number;
+  trialDays: number;
+  planPrice: number;
+  planDays: number;
+};
+
 export function SkinSorter({
   heroes,
   initialInfo,
   watermark,
+  access,
 }: {
   heroes: SorterHero[];
   initialInfo?: Partial<BannerInfo>;
   watermark: BannerWatermark;
+  access: SorterAccess;
 }) {
   // Flat lookup of every skin with its hero name attached.
   const skinById = useMemo(() => {
@@ -386,6 +396,7 @@ export function SkinSorter({
           setShowNames={setShowNames}
           skins={ordered}
           watermark={watermark}
+          access={access}
         />
       ) : null}
 
@@ -477,6 +488,7 @@ function BannerStep({
   setShowNames,
   skins,
   watermark,
+  access,
 }: {
   info: BannerInfo;
   setInfo: (info: BannerInfo) => void;
@@ -486,7 +498,9 @@ function BannerStep({
   setShowNames: (value: boolean) => void;
   skins: BannerSkin[];
   watermark: BannerWatermark;
+  access: SorterAccess;
 }) {
+  const unlocked = access.state === "trial" || access.state === "paid" || access.state === "admin";
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [rendering, setRendering] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -507,7 +521,15 @@ function BannerStep({
         // back from the page so the canvas uses the same Thai font.
         const fontFamily = getComputedStyle(document.body).fontFamily || "sans-serif";
         const offscreen = document.createElement("canvas");
-        await renderBanner(offscreen, { info, skins, theme, showNames, fontFamily, watermark });
+        await renderBanner(offscreen, {
+          info,
+          skins,
+          theme,
+          showNames,
+          fontFamily,
+          watermark,
+          preview: !unlocked,
+        });
         if (id !== renderId.current) return;
         canvas.width = offscreen.width;
         canvas.height = offscreen.height;
@@ -520,7 +542,7 @@ function BannerStep({
       }
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [info, skins, theme, showNames, watermark]);
+  }, [info, skins, theme, showNames, watermark, unlocked]);
 
   const toBlob = () =>
     new Promise<Blob | null>((resolve) => {
@@ -640,14 +662,26 @@ function BannerStep({
           </label>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={download} disabled={rendering} className="btn-primary">
-            ดาวน์โหลด PNG
-          </button>
-          <button type="button" onClick={share} disabled={rendering} className="btn-secondary">
-            แชร์
-          </button>
-        </div>
+        {unlocked ? (
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={download} disabled={rendering} className="btn-primary">
+              ดาวน์โหลด PNG
+            </button>
+            <button type="button" onClick={share} disabled={rendering} className="btn-secondary">
+              แชร์
+            </button>
+          </div>
+        ) : (
+          <UnlockPanel access={access} />
+        )}
+        {access.state === "trial" ? (
+          <p className="text-center text-xs text-ink-muted">
+            ทดลองใช้ฟรี เหลืออีก {access.daysLeft} วัน ·{" "}
+            <a href="/account" className="text-gold hover:underline">
+              สมัครรายเดือน
+            </a>
+          </p>
+        ) : null}
         {error ? <p className="text-sm text-rose-300">{error}</p> : null}
       </div>
 
@@ -661,6 +695,35 @@ function BannerStep({
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+function UnlockPanel({ access }: { access: SorterAccess }) {
+  const price = `${access.planPrice.toLocaleString("th-TH")} บาท/${access.planDays} วัน`;
+  if (access.state === "expired") {
+    return (
+      <div className="card space-y-3 border-gold/50 p-4 text-center">
+        <p className="font-semibold text-ink">หมดเวลาใช้งานแล้ว</p>
+        <p className="text-sm text-ink-muted">ต่ออายุ {price} เพื่อดาวน์โหลดป้ายแบบไม่มีลายน้ำ ทำได้ไม่จำกัด</p>
+        <a href="/account" className="btn-primary block">
+          ชำระเงินด้วยพร้อมเพย์
+        </a>
+      </div>
+    );
+  }
+  return (
+    <div className="card space-y-3 border-gold/50 p-4 text-center">
+      <p className="font-semibold text-ink">
+        {access.trialDays > 0 ? `สมัครด้วยอีเมล ทดลองใช้ฟรี ${access.trialDays} วัน` : "สมัครสมาชิกเพื่อดาวน์โหลด"}
+      </p>
+      <p className="text-sm text-ink-muted">ป้ายที่ทำไว้ไม่หาย ระบบจำไว้ให้ · หลังทดลองใช้ {price}</p>
+      <a href="/register?callbackUrl=%2Fsort" className="btn-primary block">
+        {access.trialDays > 0 ? "เริ่มทดลองใช้ฟรี" : "สมัครสมาชิก"}
+      </a>
+      <a href="/login?callbackUrl=%2Fsort" className="block text-sm text-gold hover:underline">
+        มีบัญชีแล้ว? เข้าสู่ระบบ
+      </a>
     </div>
   );
 }

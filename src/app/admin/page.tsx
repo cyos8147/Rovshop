@@ -15,6 +15,23 @@ export default async function AdminDashboardPage() {
     }),
   ]);
 
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const [memberCount, activePaid, activeTrial, pendingPayments, monthRevenue] = await Promise.all([
+    prisma.user.count({ where: { role: "MEMBER" } }),
+    prisma.user.count({ where: { role: "MEMBER", paidUntil: { gt: now } } }),
+    prisma.user.count({
+      where: { role: "MEMBER", trialEndsAt: { gt: now }, OR: [{ paidUntil: null }, { paidUntil: { lte: now } }] },
+    }),
+    prisma.payment.count({ where: { status: "PENDING" } }),
+    prisma.payment.aggregate({
+      where: { status: "APPROVED", reviewedAt: { gte: monthStart } },
+      _sum: { amount: true },
+    }),
+  ]);
+
   const soldValue = soldAccounts.reduce((sum, account) => sum + (account.discountPrice ?? account.price), 0);
 
   const stats = [
@@ -27,7 +44,23 @@ export default async function AdminDashboardPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-ink">แดชบอร์ด</h1>
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <h2 className="mt-6 font-semibold text-ink">เว็บทำป้าย</h2>
+      <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-5">
+        {[
+          { label: "สมาชิกทั้งหมด", value: memberCount.toLocaleString("th-TH") },
+          { label: "จ่ายรายเดือนอยู่", value: activePaid.toLocaleString("th-TH") },
+          { label: "กำลังทดลองใช้", value: activeTrial.toLocaleString("th-TH") },
+          { label: "สลิปรอตรวจ", value: pendingPayments.toLocaleString("th-TH") },
+          { label: "รายได้เดือนนี้", value: formatTHB(monthRevenue._sum.amount ?? 0) },
+        ].map((stat) => (
+          <div key={stat.label} className="card p-4">
+            <p className="text-sm text-ink-muted">{stat.label}</p>
+            <p className="mt-1 text-2xl font-bold text-gold">{stat.value}</p>
+          </div>
+        ))}
+      </div>
+      <h2 className="mt-8 font-semibold text-ink">ร้านขายไอดี</h2>
+      <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {stats.map((stat) => (
           <div key={stat.label} className="card p-4">
             <p className="text-sm text-ink-muted">{stat.label}</p>

@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { LoginForm } from "@/components/LoginForm";
+import { sanitizeCallbackUrl } from "@/lib/callback-url";
 
 export const metadata: Metadata = { title: "เข้าสู่ระบบ" };
-
-function sanitizeCallbackUrl(url: string | undefined): string {
-  if (!url || !url.startsWith("/") || url.startsWith("//")) return "/admin";
-  return url;
-}
 
 export default async function LoginPage({
   searchParams,
@@ -14,15 +11,21 @@ export default async function LoginPage({
   searchParams: Promise<{ callbackUrl?: string }>;
 }) {
   const sp = await searchParams;
-  const callbackUrl = sanitizeCallbackUrl(sp.callbackUrl);
+  // /account forwards admins on to /admin.
+  const callbackUrl = sanitizeCallbackUrl(sp.callbackUrl, "/account");
 
   return (
     <div className="mx-auto max-w-md px-4 py-12">
-      <h1 className="text-center text-2xl font-bold text-ink">เข้าสู่ระบบแอดมิน</h1>
-      <p className="mt-2 text-center text-sm text-ink-muted">สำหรับผู้ดูแลร้านเท่านั้น</p>
+      <h1 className="text-center text-2xl font-bold text-ink">เข้าสู่ระบบ</h1>
       <div className="mt-6">
         <LoginForm callbackUrl={callbackUrl} />
       </div>
+      <p className="mt-4 text-center text-sm text-ink-muted">
+        ยังไม่มีบัญชี?{" "}
+        <Link href={`/register?callbackUrl=${encodeURIComponent(callbackUrl === "/account" ? "/sort" : callbackUrl)}`} className="text-gold hover:underline">
+          สมัครและทดลองใช้ฟรี
+        </Link>
+      </p>
     </div>
   );
 }

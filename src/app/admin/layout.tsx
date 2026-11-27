@@ -33,6 +33,18 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               คลังสกิน
             </Link>
             <Link
+              href="/admin/payments"
+              className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
+            >
+              การชำระเงิน
+            </Link>
+            <Link
+              href="/admin/members"
+              className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
+            >
+              สมาชิก
+            </Link>
+            <Link
               href="/admin/settings"
               className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
             >

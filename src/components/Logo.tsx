@@ -3,7 +3,7 @@
 export function Logo({ size = "md" }: { size?: "md" | "lg" }) {
   const big = size === "lg" ? "text-3xl" : "text-2xl";
   return (
-    <span className="inline-flex items-baseline gap-1.5 leading-none">
+    <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap leading-none">
       <span
         className={`${big} font-black uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-gold-soft via-gold to-gold`}
       >

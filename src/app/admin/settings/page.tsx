@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { getSettings } from "@/lib/settings";
 import { SettingsForm } from "@/components/SettingsForm";
+import { PlanSettingsForm } from "@/components/MembershipAdmin";
+import { updatePlanSettingsAction } from "@/lib/actions/membership";
+import { isSlipVerificationConfigured } from "@/lib/slip";
 
 export const metadata: Metadata = { title: "ตั้งค่าร้าน" };
 
@@ -15,6 +18,19 @@ export default async function AdminSettingsPage() {
       </p>
       <div className="mt-6 max-w-xl">
         <SettingsForm defaultContactUrl={settings.contactUrl} />
+      </div>
+      <div className="mt-6 max-w-xl">
+        <PlanSettingsForm
+          action={updatePlanSettingsAction}
+          slipAutoVerify={isSlipVerificationConfigured()}
+          defaults={{
+            promptpayId: settings.promptpayId,
+            promptpayName: settings.promptpayName,
+            planPrice: settings.planPrice,
+            planDays: settings.planDays,
+            trialDays: settings.trialDays,
+          }}
+        />
       </div>
     </div>
   );

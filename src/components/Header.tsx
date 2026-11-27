@@ -14,17 +14,17 @@ export async function Header() {
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm text-ink-muted md:flex">
-          <Link href="/accounts" className="transition hover:text-gold">
-            ไอดีทั้งหมด
-          </Link>
           <Link href="/sort" className="transition hover:text-gold">
-            เรียงสกินทำป้าย
+            ทำป้ายขายไอดี
+          </Link>
+          <Link href="/#pricing" className="transition hover:text-gold">
+            ราคา
+          </Link>
+          <Link href="/accounts" className="transition hover:text-gold">
+            ไอดีขายจากร้าน
           </Link>
           <Link href="/faq" className="transition hover:text-gold">
             คำถามที่พบบ่อย
-          </Link>
-          <Link href="/policy" className="transition hover:text-gold">
-            นโยบาย
           </Link>
         </nav>
 
@@ -38,10 +38,25 @@ export async function Header() {
             </Link>
             <SignOutButton />
           </div>
+        ) : session?.user ? (
+          <div className="flex items-center gap-2">
+            <Link href="/account" className="btn-secondary whitespace-nowrap px-3 py-1.5 text-sm">
+              บัญชีของฉัน
+            </Link>
+            {/* On phones sign-out lives on /account to keep the header on one line. */}
+            <span className="hidden sm:inline">
+              <SignOutButton />
+            </span>
+          </div>
         ) : (
-          <Link href="/accounts" className="btn-primary hidden sm:inline-block">
-            ดูไอดีทั้งหมด
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/login" className="hidden text-sm text-ink-muted transition hover:text-gold sm:inline">
+              เข้าสู่ระบบ
+            </Link>
+            <Link href="/sort" className="btn-primary whitespace-nowrap px-3 py-1.5 text-sm">
+              ทำป้ายเลย
+            </Link>
+          </div>
         )}
       </div>
     </header>

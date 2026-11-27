@@ -12,15 +12,20 @@ export async function Footer() {
           <div>
             <Logo />
             <p className="mt-2 max-w-xs">
-              ร้านขายไอดีเกม RoV แรงค์สูง สกินหายาก ตรวจสอบสเปกได้ทุกรายการก่อนตัดสินใจซื้อ
+              เว็บทำป้ายขายไอดีเกม เรียงสกินอัตโนมัติ ได้ภาพเดียวพร้อมโพสต์ และร้านขายไอดี RoV ที่ตรวจสอบสเปกได้ก่อนซื้อ
             </p>
           </div>
           <div>
             <div className="mb-2 font-semibold text-ink">ลิงก์ด่วน</div>
             <ul className="space-y-1">
               <li>
+                <a href="/sort" className="transition hover:text-gold">
+                  ทำป้ายขายไอดี
+                </a>
+              </li>
+              <li>
                 <a href="/accounts" className="transition hover:text-gold">
-                  ไอดีทั้งหมด
+                  ไอดีขายจากร้าน
                 </a>
               </li>
               <li>
@@ -48,7 +53,7 @@ export async function Footer() {
         <div className="mt-8 flex flex-col items-center gap-2 border-t border-border pt-6 text-center text-xs">
           <p>© {new Date().getFullYear()} Oscar Gaming images</p>
           <Link href="/login" className="text-ink-muted/70 transition hover:text-gold">
-            สำหรับแอดมิน
+            เข้าสู่ระบบ
           </Link>
         </div>
       </div>

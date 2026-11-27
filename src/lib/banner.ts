@@ -73,6 +73,9 @@ export type BannerOptions = {
   showNames: boolean;
   fontFamily: string;
   watermark: BannerWatermark | null;
+  // Visitors without an active trial/plan get a tiled "ตัวอย่าง" overlay so
+  // the on-screen preview can't simply be screenshotted instead of paying.
+  preview: boolean;
 };
 
 export type BannerWatermark = { text: string; brand: string; suffix: string };
@@ -429,5 +432,26 @@ export async function renderBanner(canvas: HTMLCanvasElement, options: BannerOpt
       ctx.fillText(text, wx, height - 28);
       wx += widths[i];
     });
+  }
+
+  if (options.preview) {
+    ctx.save();
+    ctx.translate(WIDTH / 2, height / 2);
+    ctx.rotate(-Math.PI / 6);
+    ctx.font = `900 64px ${font}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "rgba(255,255,255,0.16)";
+    ctx.strokeStyle = "rgba(0,0,0,0.25)";
+    ctx.lineWidth = 2;
+    const span = Math.hypot(WIDTH, height);
+    for (let y = -span / 2; y < span / 2; y += 170) {
+      for (let x = -span / 2; x < span / 2; x += 560) {
+        const offset = (Math.round(y / 170) % 2) * 280;
+        ctx.strokeText("ตัวอย่าง · OSCAR", x + offset, y);
+        ctx.fillText("ตัวอย่าง · OSCAR", x + offset, y);
+      }
+    }
+    ctx.restore();
   }
 }

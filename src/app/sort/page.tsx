@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { SkinSorter } from "@/components/SkinSorter";
 import type { BannerInfo } from "@/lib/banner";
+import { daysLeft, getCurrentAccess } from "@/lib/membership";
+import { getSettings } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "เรียงสกินทำป้ายขายไอดี",
-  description: "เลือกสกิน RoV ที่มี จัดเรียง แล้วสร้างเป็นภาพป้ายขายไอดีภาพเดียว ใช้ฟรีทั้งมือถือและคอม",
+  description: "เลือกสกิน RoV ที่มี จัดเรียง แล้วสร้างเป็นภาพป้ายขายไอดีภาพเดียว ใช้ได้ทั้งมือถือและคอม ทดลองใช้ฟรี",
 };
 
 export default async function SortPage({
@@ -15,7 +17,7 @@ export default async function SortPage({
 }) {
   const { account: accountSlug } = await searchParams;
 
-  const [heroes, account] = await Promise.all([
+  const [heroes, account, access, settings] = await Promise.all([
     prisma.hero.findMany({
       orderBy: { name: "asc" },
       select: {
@@ -31,6 +33,8 @@ export default async function SortPage({
           select: { title: true, rank: true, heroCount: true, price: true, discountPrice: true },
         })
       : null,
+    getCurrentAccess(),
+    getSettings(),
   ]);
 
   // "ทำป้ายจากไอดีนี้" link from the admin: prefill the banner details.
@@ -52,7 +56,7 @@ export default async function SortPage({
           เรียงสกิน <span className="text-gold">ทำป้ายขายไอดี</span>
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
-          เลือกสกินที่มี → จัดเรียง → ได้ภาพเดียวพร้อมโพสต์ ใช้ฟรี ไม่ต้องสมัครสมาชิก ·{" "}
+          เลือกสกินที่มี → จัดเรียง → ได้ภาพเดียวพร้อมโพสต์ · ลองจัดได้เลยไม่ต้องสมัคร ·{" "}
           {heroes.length} ฮีโร่ · {skinCount.toLocaleString("th-TH")} สกินในคลัง
         </p>
       </div>
@@ -60,7 +64,14 @@ export default async function SortPage({
         key={accountSlug ? String(accountSlug) : "default"}
         heroes={heroes}
         initialInfo={initialInfo}
-        watermark={{ text: "ทำป้ายฟรีที่", brand: "OSCAR", suffix: "Gaming images" }}
+        watermark={{ text: "ทำป้ายที่", brand: "OSCAR", suffix: "Gaming images" }}
+        access={{
+          state: access.state,
+          daysLeft: daysLeft(access.until),
+          trialDays: settings.trialDays,
+          planPrice: settings.planPrice,
+          planDays: settings.planDays,
+        }}
       />
     </div>
   );

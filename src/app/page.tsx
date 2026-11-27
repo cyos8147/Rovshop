@@ -31,22 +31,7 @@ const STEPS = [
 ];
 
 export default async function HomePage() {
-  const [settings, skinCount, heroes] = await Promise.all([
-    getSettings(),
-    prisma.skin.count(),
-    prisma.hero.findMany({
-      where: { skins: { some: {} } },
-      orderBy: [{ skins: { _count: "desc" } }, { name: "asc" }],
-      take: 6,
-      select: {
-        id: true,
-        name: true,
-        _count: { select: { skins: true } },
-        // One picture of this hero's skins (added by the admin), for the card.
-        skins: { where: { imageUrl: { not: null } }, take: 1, select: { imageUrl: true } },
-      },
-    }),
-  ]);
+  const [settings, skinCount] = await Promise.all([getSettings(), prisma.skin.count()]);
   // Optional artwork: set in /admin/settings, or drop a file at public/hero-bg.jpg (.webp/.png).
   const heroArt =
     settings.heroArtUrl ??
@@ -101,37 +86,6 @@ export default async function HomePage() {
           </p>
         </div>
       </section>
-
-      {/* Heroes in the library */}
-      {heroes.length > 0 ? (
-        <section className="mx-auto max-w-6xl px-4 pt-10">
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 className="text-xl font-bold text-ink">ฮีโร่ในคลัง</h2>
-            <Link href="/sort" className="text-sm text-gold-soft hover:underline">
-              ดูทั้งหมด
-            </Link>
-          </div>
-          <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {heroes.map((hero) => (
-              <li key={hero.id}>
-                <Link
-                  href="/sort"
-                  className="relative block aspect-[4/3] overflow-hidden rounded-xl border border-border bg-gradient-to-br from-violet/30 to-card transition hover:border-gold"
-                >
-                  {hero.skins[0]?.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={hero.skins[0].imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                  ) : null}
-                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-3 pb-2 pt-8">
-                    <span className="block truncate text-sm font-semibold text-ink">{hero.name}</span>
-                    <span className="text-[11px] text-ink-muted">{hero._count.skins} สกิน</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       {/* How it works */}
       <section className="mx-auto max-w-6xl px-4 py-14">

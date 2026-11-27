@@ -15,7 +15,7 @@ export function Logo({ size = "md" }: { size?: "sm" | "md" }) {
       <span className="h-7 w-px bg-border" />
       <span className="flex flex-col gap-1">
         <span
-          className={`font-display font-extrabold uppercase tracking-[0.22em] text-white ${small ? "text-base" : "text-xl"}`}
+          className={`font-display font-extrabold uppercase tracking-[0.22em] text-ink ${small ? "text-base" : "text-xl"}`}
         >
           Oscar
         </span>

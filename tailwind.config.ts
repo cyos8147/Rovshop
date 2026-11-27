@@ -25,8 +25,8 @@ const config: Config = {
         },
         coin: "#e8b64a",
         ink: {
-          DEFAULT: "#f2f2f7",
-          muted: "#9a9ab0",
+          DEFAULT: "#d9d5ea",
+          muted: "#9791b2",
         },
       },
       fontFamily: {

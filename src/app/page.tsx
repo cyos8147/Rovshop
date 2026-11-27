@@ -106,7 +106,7 @@ export default async function HomePage() {
 
         <div className="relative mx-auto max-w-6xl px-4 py-16 sm:py-24">
           <h1 className="font-display font-extrabold uppercase leading-none">
-            <span className="block bg-gradient-to-b from-white to-[#b7a9ee] bg-clip-text text-5xl tracking-[0.16em] text-transparent sm:text-7xl">
+            <span className="block bg-gradient-to-b from-[#e3ddf6] to-[#a898d8] bg-clip-text text-5xl tracking-[0.16em] text-transparent sm:text-7xl">
               Oscar
             </span>
             <span className="mt-3 block text-xl font-medium tracking-[0.34em] text-ink/80 sm:text-3xl">Gaming Images</span>
@@ -160,8 +160,8 @@ export default async function HomePage() {
                     <img src={hero.skins[0].imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
                   ) : null}
                   <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-3 pb-2 pt-8">
-                    <span className="block truncate text-sm font-semibold text-white">{hero.name}</span>
-                    <span className="text-[11px] text-white/70">{hero._count.skins} สกิน</span>
+                    <span className="block truncate text-sm font-semibold text-ink">{hero.name}</span>
+                    <span className="text-[11px] text-ink-muted">{hero._count.skins} สกิน</span>
                   </span>
                 </Link>
               </li>

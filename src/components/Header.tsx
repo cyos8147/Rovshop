@@ -21,7 +21,7 @@ export async function Header() {
 
         <nav className="hidden items-center gap-6 text-sm text-ink-muted md:flex">
           <Link href="/sort" className="transition hover:text-gold">
-            ทำป้ายขายไอดี
+            ทำป้ายสกิน RoV
           </Link>
           <Link href="/#pricing" className="transition hover:text-gold">
             ราคา

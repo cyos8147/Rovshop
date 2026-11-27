@@ -1,3 +1,5 @@
+import { existsSync } from "fs";
+import { join } from "path";
 import { LogoImage } from "@/components/Logo";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -5,37 +7,141 @@ import { getSettings } from "@/lib/settings";
 import { formatCoins } from "@/lib/coins";
 
 // Decorative tiles for the hero mock-up of a banner.
+const STEPS = [
+  {
+    n: "1",
+    title: "เลือกสกิน",
+    desc: "ค้นหาชื่อฮีโร่หรือสกิน กดเลือกสกินที่มี และเรียงลำดับเองได้",
+    icon: (
+      <>
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <circle cx="9" cy="10" r="1.6" />
+        <path d="M21 16l-5-5-9 9" />
+      </>
+    ),
+  },
+  {
+    n: "2",
+    title: "เลือกพื้นหลัง",
+    desc: "อัปโหลดรูปของคุณตัดให้พอดีหัวป้าย หรือเลือกธีมสี",
+    icon: (
+      <>
+        <path d="M12 3a9 9 0 100 18c1.4 0 2-.9 2-1.8 0-1.2-1-1.6-1-2.7 0-1 .8-1.5 1.8-1.5H17a4 4 0 004-4c0-4.4-4-8-9-8z" />
+        <circle cx="7.5" cy="11" r="1" />
+        <circle cx="10.5" cy="7" r="1" />
+        <circle cx="15" cy="7.5" r="1" />
+      </>
+    ),
+  },
+  {
+    n: "3",
+    title: "ข้อมูลไอดี",
+    desc: "ใส่รหัสไอดี จำนวนฮีโร่/สกิน แรงค์ ราคา และช่องทางติดต่อ",
+    icon: (
+      <>
+        <path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" />
+        <path d="M14 3v5h5M9 13h6M9 17h6" />
+      </>
+    ),
+  },
+  {
+    n: "4",
+    title: "ชำระเงิน / ดาวน์โหลด",
+    desc: "ดูราคาก่อนจ่าย แล้วได้ภาพ PNG คมชัดพร้อมโพสต์",
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 12.5l2.8 2.8L16.5 9.5" />
+      </>
+    ),
+  },
+];
+
 const MOCK_TILES = Array.from({ length: 12 }, (_, i) => i);
+const TILE_STYLES = [
+  "border-violet/60 bg-gradient-to-br from-violet/60 to-[#1a1740]",
+  "border-sky-400/50 bg-gradient-to-br from-sky-500/40 to-[#14223d]",
+  "border-rose-400/50 bg-gradient-to-br from-rose-500/40 to-[#2a1530]",
+  "border-gold/50 bg-gradient-to-br from-gold/40 to-[#2a2112]",
+];
 
 export default async function HomePage() {
-  const [settings, skinCount] = await Promise.all([getSettings(), prisma.skin.count()]);
+  const [settings, skinCount, heroes, tileSkins] = await Promise.all([
+    getSettings(),
+    prisma.skin.count(),
+    prisma.hero.findMany({
+      where: { skins: { some: {} } },
+      orderBy: [{ skins: { _count: "desc" } }, { name: "asc" }],
+      take: 24,
+      select: { id: true, name: true, _count: { select: { skins: true } } },
+    }),
+    // Pictures the admin added; shown in the hero mock-up when there are any.
+    prisma.skin.findMany({
+      where: { imageUrl: { not: null } },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+      select: { id: true, name: true, imageUrl: true },
+    }),
+  ]);
+  // Optional artwork: drop a file at public/hero-bg.jpg (or .webp/.png) to use it behind the hero.
+  const heroArt = ["jpg", "webp", "png"].map((ext) => `/hero-bg.${ext}`).find((url) => existsSync(join(process.cwd(), "public", url)));
 
   const c = (cents: number) => formatCoins(cents);
 
   return (
     <div>
       {/* Hero */}
-      <section className="bg-hero-gradient">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
+      <section className="relative overflow-hidden bg-[#0b0918]">
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          {heroArt ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={heroArt} alt="" className="absolute inset-0 h-full w-full object-cover object-right" />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#0b0918] via-[#0b0918]/80 to-[#0b0918]/30" />
+            </>
+          ) : (
+            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice">
+              <defs>
+                <linearGradient id="shardA" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stopColor="#6d4df2" stopOpacity="0.55" />
+                  <stop offset="1" stopColor="#2a1a6e" stopOpacity="0.15" />
+                </linearGradient>
+                <linearGradient id="shardB" x1="1" y1="0" x2="0" y2="1">
+                  <stop offset="0" stopColor="#a78bfa" stopOpacity="0.35" />
+                  <stop offset="1" stopColor="#1a1245" stopOpacity="0.1" />
+                </linearGradient>
+              </defs>
+              <rect width="1200" height="700" fill="#0b0918" />
+              <polygon points="560,0 1200,0 1200,520 900,260" fill="url(#shardA)" />
+              <polygon points="760,0 1200,0 1200,300" fill="url(#shardB)" />
+              <polygon points="430,700 780,330 1000,700" fill="url(#shardB)" />
+              <polygon points="1000,700 1200,420 1200,700" fill="url(#shardA)" />
+              <polyline points="560,0 900,260 1200,520" fill="none" stroke="#e8b64a" strokeOpacity="0.55" strokeWidth="1.5" />
+              <polyline points="430,700 780,330 1200,0" fill="none" stroke="#a78bfa" strokeOpacity="0.35" strokeWidth="1" />
+              <polyline points="1000,700 1200,420" fill="none" stroke="#e8b64a" strokeOpacity="0.4" strokeWidth="1" />
+            </svg>
+          )}
+          {/* curved edge into the next section */}
+          <svg className="absolute inset-x-0 bottom-0 h-10 w-full text-bg" viewBox="0 0 1200 40" preserveAspectRatio="none">
+            <path d="M0 40 L0 22 Q600 -6 1200 22 L1200 40 Z" fill="currentColor" />
+          </svg>
+        </div>
+
+        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 pb-20 pt-12 sm:pt-16 md:grid-cols-[1fr_1fr]">
           <div>
-            <div className="mb-4">
-              <LogoImage />
-            </div>
-            <p className="inline-block rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold-soft">
-              จัดฟรี · จ่ายเมื่อดาวน์โหลด · หรือรายเดือนไม่จำกัด
-            </p>
-            <h1 className="mt-4 text-4xl font-black leading-tight text-ink sm:text-5xl">
-              ทำป้ายขายไอดี
-              <br />
-              <span className="bg-gradient-to-r from-gold-soft to-gold bg-clip-text text-transparent">
+            <LogoImage />
+            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.3em] text-gold-soft">RoV · Arena of Valor</p>
+            <h1 className="mt-3 text-3xl font-black leading-tight text-ink sm:text-4xl">
+              ทำป้ายสกิน RoV
+              <span className="block bg-gradient-to-r from-gold-soft to-gold bg-clip-text text-transparent">
                 เสร็จในไม่กี่นาที
               </span>
             </h1>
-            <p className="mt-4 max-w-xl text-ink-muted">
-              ติ๊กสกินที่มี เลือกพื้นหลัง ใส่ข้อมูลไอดี ราคา ช่องทางติดต่อ แล้วได้ภาพเดียวพร้อมโพสต์ขาย
-              ไม่ต้องใช้โปรแกรมแต่งภาพ ใช้ได้ทั้งมือถือและคอม
+            <p className="mt-4 max-w-md text-ink-muted">
+              เลือกสกินที่มี เลือกพื้นหลัง ใส่ข้อมูลไอดี แล้วได้ภาพเดียวพร้อมโพสต์ สวย คมชัด ไม่ต้องใช้โปรแกรมแต่งภาพ
+              ใช้ได้ทั้งมือถือและคอม
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-7 flex flex-wrap gap-3">
               <Link href="/sort" className="btn-primary px-6">
                 เริ่มทำป้าย →
               </Link>
@@ -43,62 +149,119 @@ export default async function HomePage() {
                 ดูราคา
               </a>
             </div>
-            <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink-muted">
-              <li>• {skinCount.toLocaleString("th-TH")} สกินในคลัง</li>
-              <li>• 4 ธีมสี</li>
-              <li>• {c(settings.skinPriceCents)} คอยน์/สกิน</li>
+            <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-ink-muted">
+              {[
+                `${skinCount.toLocaleString("th-TH")} สกินในคลัง`,
+                "4 ธีมสี",
+                `${c(settings.skinPriceCents)} คอยน์/สกิน`,
+              ].map((t) => (
+                <li key={t} className="flex items-center gap-1.5">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-violet text-[10px] text-white">✓</span>
+                  {t}
+                </li>
+              ))}
             </ul>
           </div>
 
-          <div aria-hidden className="card mx-auto w-full max-w-md rotate-1 p-4 shadow-goldGlow">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-lg font-bold text-ink">ขายไอดีเซียน สกินเพียบ</p>
-                <div className="mt-2 flex gap-1.5 text-[11px]">
-                  {["แรงค์ เซียน", "ฮีโร่ 112", "สกิน 12"].map((t) => (
-                    <span key={t} className="rounded-full border border-gold/40 px-2 py-0.5 text-gold">
-                      {t}
-                    </span>
-                  ))}
-                </div>
+          <div aria-hidden className="relative mx-auto w-full max-w-md py-4 md:max-w-none md:px-4">
+            <div className="rounded-3xl border border-violet/40 bg-[#14122c] p-4 shadow-[0_28px_48px_-16px_rgba(0,0,0,0.8)]">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-lg font-bold text-ink">ตัวอย่างป้ายสกิน RoV</p>
+                <p className="text-2xl font-black text-gold">฿3,990</p>
               </div>
-              <p className="text-2xl font-black text-gold">฿3,990</p>
+              <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                <span className="rounded-full bg-violet px-3 py-1 font-semibold text-white">แรงค์ เซียน</span>
+                <span className="rounded-full border border-border px-3 py-1 text-ink-muted">ฮีโร่ 112</span>
+                <span className="rounded-full border border-border px-3 py-1 text-ink-muted">สกิน 12</span>
+              </div>
+              <div className="mt-4 grid grid-cols-4 gap-1.5">
+                {MOCK_TILES.map((i) => {
+                  const skin = tileSkins[i];
+                  return (
+                    <div
+                      key={i}
+                      className={`relative aspect-[4/5] overflow-hidden rounded-lg border ${TILE_STYLES[i % TILE_STYLES.length]}`}
+                    >
+                      {skin?.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={skin.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                      ) : (
+                        <>
+                          <span className="absolute inset-x-0 bottom-0 h-1/4 bg-black/40" />
+                          <span className="absolute bottom-[9%] left-[12%] h-[6%] w-1/2 rounded-full bg-white/40" />
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-center text-[11px] text-ink-muted">
+                ทำป้ายที่ <span className="font-black text-gold">OSCAR</span> Gaming images
+              </p>
             </div>
-            <div className="mt-4 grid grid-cols-4 gap-1.5">
-              {MOCK_TILES.map((i) => (
-                <div
-                  key={i}
-                  className="aspect-[4/5] rounded-lg border-2 border-violet/50 bg-gradient-to-br from-violet/40 to-bg-soft"
-                />
-              ))}
+            <div className="absolute -bottom-1 right-8 rotate-2 rounded-full bg-gradient-to-r from-gold-soft to-gold px-4 py-2 text-xs font-black text-[#2a1b05] shadow-[0_10px_18px_-8px_rgba(0,0,0,0.8)]">
+              พร้อมโพสต์ขาย
             </div>
-            <p className="mt-3 text-right text-[11px] text-ink-muted">
-              ทำป้ายที่ <span className="font-black text-gold">OSCAR</span> Gaming images
-            </p>
           </div>
         </div>
       </section>
 
       {/* How it works */}
-      <section className="mx-auto max-w-6xl px-4 py-14">
-        <h2 className="text-center text-2xl font-bold text-ink">ทำป้ายได้ใน 4 ขั้นตอน</h2>
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { n: "1", title: "เลือกสกิน", desc: "ค้นหาชื่อฮีโร่หรือสกิน กดเลือกสกินที่มี และเรียงลำดับเองได้ตามใจ" },
-            { n: "2", title: "เลือกพื้นหลัง", desc: "อัปโหลดรูปของคุณตัดให้พอดีหัวป้าย หรือเลือกธีมสีที่มีให้" },
-            { n: "3", title: "ข้อมูลไอดี", desc: "ใส่รหัสไอดี จำนวนฮีโร่/สกิน แรงค์ ราคา และช่องทางติดต่อ" },
-            { n: "4", title: "ชำระเงิน / ดาวน์โหลด", desc: "ดูราคาก่อนจ่าย แล้วได้ภาพ PNG คมชัดพร้อมโพสต์ขาย" },
-          ].map((step) => (
-            <div key={step.n} className="card p-5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold font-bold text-bg">
-                {step.n}
-              </span>
-              <h3 className="mt-3 font-semibold text-ink">{step.title}</h3>
-              <p className="mt-1 text-sm text-ink-muted">{step.desc}</p>
-            </div>
-          ))}
-        </div>
+      <section className="mx-auto max-w-6xl px-4 py-12">
+        <h2 className="text-center text-2xl font-bold text-ink">
+          ทำป้ายได้ใน <span className="text-violet-soft">4</span> ขั้นตอน
+        </h2>
+        <ol className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] lg:items-stretch">
+          {STEPS.flatMap((step, index) => {
+            const card = (
+              <li key={step.n} className="card flex flex-col items-center p-5 text-center">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-violet text-sm font-bold text-violet-soft">
+                  {step.n}
+                </span>
+                <svg viewBox="0 0 24 24" className="mt-3 h-10 w-10 text-violet-soft" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  {step.icon}
+                </svg>
+                <h3 className="mt-3 font-semibold text-ink">{step.title}</h3>
+                <p className="mt-1 text-sm text-ink-muted">{step.desc}</p>
+              </li>
+            );
+            return index < STEPS.length - 1
+              ? [card, <li key={`a${step.n}`} aria-hidden className="hidden items-center text-ink-muted lg:flex">→</li>]
+              : [card];
+          })}
+        </ol>
       </section>
+
+      {/* RoV heroes in the library */}
+      {heroes.length > 0 ? (
+        <section className="mx-auto max-w-6xl px-4 pb-4">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gold">RoV</p>
+              <h2 className="mt-1 text-2xl font-bold text-ink">ฮีโร่และสกินในคลัง</h2>
+            </div>
+            <Link href="/sort" className="text-sm text-gold hover:underline">
+              ดูทั้งหมดในหน้าทำป้าย →
+            </Link>
+          </div>
+          <ul className="mt-5 flex flex-wrap gap-2">
+            {heroes.map((hero) => (
+              <li key={hero.id}>
+                <Link
+                  href="/sort"
+                  className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-ink transition hover:border-gold"
+                >
+                  {hero.name}
+                  <span className="rounded-full bg-violet/25 px-1.5 text-[11px] font-semibold text-gold-soft">
+                    {hero._count.skins}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-ink-muted">เพิ่มฮีโร่และสกินใหม่อย่างต่อเนื่อง</p>
+        </section>
+      ) : null}
 
       {/* Pricing */}
       <section id="pricing" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-14">

@@ -57,7 +57,10 @@ export async function saveUploadedImage(file: File): Promise<string> {
   });
 
   if (error) {
-    throw new Error("อัปโหลดรูปภาพไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    // Only admins upload skin pictures, so the real reason is shown to them
+    // (and logged) to make a wrong key or bucket name easy to spot.
+    console.error("Supabase image upload failed", { bucket, message: error.message });
+    throw new Error(`อัปโหลดรูปภาพไม่สำเร็จ (${error.message}) — bucket: ${bucket}`);
   }
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(filename);

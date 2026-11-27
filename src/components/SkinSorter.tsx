@@ -1,21 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { chargeDownloadAction } from "@/lib/actions/membership";
 import { ImageCropper } from "@/components/ImageCropper";
+import { BACKGROUND_KEY, BackgroundStep, DetailsStep, PayStep, type SorterWallet } from "@/components/BannerBuilder";
 import { loadUserImages, removeUserImage, saveUserImage } from "@/lib/user-images";
 import {
   BANNER_THEMES,
-  renderBanner,
-  type BannerInfo,
+  DEFAULT_DESIGN,
+  EMPTY_INFO,
+  type BannerDesign,
   type BannerSkin,
-  type BannerThemeKey,
   type BannerWatermark,
 } from "@/lib/banner";
 import {
   HERO_ROLES,
   HERO_ROLE_LABELS,
-  RANK_TIERS,
   SKIN_TIERS,
   SKIN_TIER_COLORS,
   SKIN_TIER_LABELS,
@@ -32,18 +31,27 @@ export type SorterHero = {
 };
 
 type SortMode = "tier" | "hero" | "manual";
-type Tab = "pick" | "order" | "banner";
+type Tab = "pick" | "background" | "details" | "pay";
+type PickView = "pick" | "order";
+
+const STEPS: { key: Tab; label: string; short: string }[] = [
+  { key: "pick", label: "1. เลือกสกิน", short: "พื้นหลัง" },
+  { key: "background", label: "2. พื้นหลัง", short: "ข้อมูลไอดี" },
+  { key: "details", label: "3. ข้อมูลไอดี", short: "ชำระเงิน" },
+  { key: "pay", label: "4. ชำระเงิน", short: "" },
+];
+
+export type { SorterWallet };
 
 const STORAGE_KEY = "rovshop:skin-sorter:v1";
-
-const EMPTY_INFO: BannerInfo = { title: "", rank: "", heroCount: "", price: "", contact: "", note: "" };
 
 type Saved = {
   selected: string[];
   sortMode: SortMode;
-  info: BannerInfo;
-  theme: BannerThemeKey;
+  info: Record<string, unknown>;
+  theme: string;
   showNames: boolean;
+  skinsPerRow: number;
 };
 
 function readSaved(): Partial<Saved> | null {
@@ -59,30 +67,12 @@ function tierColor(tier: string) {
   return SKIN_TIER_COLORS[tier as SkinTier] ?? SKIN_TIER_COLORS.NORMAL;
 }
 
-export type SorterWallet = {
-  state: "guest" | "member" | "admin";
-  balanceCents: number;
-  skinPriceCents: number;
-  noWatermarkCents: number;
-  signupBonusCents: number;
-  planUntil: string | null;
-  planPrice: number;
-};
-
-const PAID_KEY_STORAGE = "oscar:paid-banners:v1";
-
-function coins(cents: number) {
-  return (cents / 100).toLocaleString("th-TH", { maximumFractionDigits: 2 });
-}
-
 export function SkinSorter({
   heroes,
-  initialInfo,
   watermark,
   wallet,
 }: {
   heroes: SorterHero[];
-  initialInfo?: Partial<BannerInfo>;
   watermark: BannerWatermark;
   wallet: SorterWallet;
 }) {
@@ -106,7 +96,12 @@ export function SkinSorter({
   const pendingSkinId = useRef<string | null>(null);
 
   useEffect(() => {
-    loadUserImages().then(setUserImages);
+    loadUserImages().then((all) => {
+      // The header background shares the browser-only store with skin pictures.
+      const { [BACKGROUND_KEY]: background, ...skinPictures } = all;
+      setUserImages(skinPictures);
+      if (background) setDesign((d) => ({ ...d, background }));
+    });
   }, []);
 
   const addUserImage = (skinId: string) => {
@@ -126,9 +121,8 @@ export function SkinSorter({
   const [tab, setTab] = useState<Tab>("pick");
   const [selected, setSelected] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>("tier");
-  const [info, setInfo] = useState<BannerInfo>({ ...EMPTY_INFO, ...initialInfo });
-  const [theme, setTheme] = useState<BannerThemeKey>("royal");
-  const [showNames, setShowNames] = useState(true);
+  const [pickView, setPickView] = useState<PickView>("pick");
+  const [design, setDesign] = useState<BannerDesign>(DEFAULT_DESIGN);
   const [loaded, setLoaded] = useState(false);
 
   const [query, setQuery] = useState("");
@@ -143,10 +137,16 @@ export function SkinSorter({
     if (saved) {
       if (Array.isArray(saved.selected)) setSelected(saved.selected.filter((id) => typeof id === "string"));
       if (saved.sortMode) setSortMode(saved.sortMode);
-      if (saved.theme && saved.theme in BANNER_THEMES) setTheme(saved.theme);
-      if (typeof saved.showNames === "boolean") setShowNames(saved.showNames);
-      // Details from a "make a banner for this ID" link win over saved ones.
-      if (saved.info) setInfo({ ...EMPTY_INFO, ...saved.info, ...initialInfo });
+      setDesign((d) => ({
+        ...d,
+        theme: saved.theme && saved.theme in BANNER_THEMES ? (saved.theme as BannerDesign["theme"]) : d.theme,
+        showNames: typeof saved.showNames === "boolean" ? saved.showNames : d.showNames,
+        skinsPerRow: typeof saved.skinsPerRow === "number" ? saved.skinsPerRow : d.skinsPerRow,
+        // keep only fields the current form knows (older versions had others)
+        info: saved.info
+          ? { ...EMPTY_INFO, ...Object.fromEntries(Object.entries(saved.info).filter(([k]) => k in EMPTY_INFO)) }
+          : d.info,
+      }));
     }
     setLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,13 +155,20 @@ export function SkinSorter({
   useEffect(() => {
     if (!loaded) return;
     try {
-      const data: Saved = { selected, sortMode, info, theme, showNames };
+      const data: Saved = {
+        selected,
+        sortMode,
+        info: design.info,
+        theme: design.theme,
+        showNames: design.showNames,
+        skinsPerRow: design.skinsPerRow,
+      };
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch {
       // Private mode / storage full: the sorter still works, it just won't
       // remember the selection.
     }
-  }, [loaded, selected, sortMode, info, theme, showNames]);
+  }, [loaded, selected, sortMode, design.info, design.theme, design.showNames, design.skinsPerRow]);
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
@@ -234,24 +241,24 @@ export function SkinSorter({
   }, [heroes, query, tierFilter, roleFilter, onlySelected, selectedSet]);
 
   const totalSkins = skinById.size;
+  const stepIndex = STEPS.findIndex((step) => step.key === tab);
+  const goTo = (key: Tab) => {
+    setTab(key);
+    window.scrollTo({ top: 0 });
+  };
 
   return (
     <div className="pb-28">
-      {/* Tabs */}
+      {/* Steps */}
       <div className="sticky top-[57px] z-30 -mx-4 border-b border-border bg-bg/95 px-4 py-2 backdrop-blur">
-        <div className="grid grid-cols-3 gap-1 rounded-xl bg-bg-soft p-1 text-sm">
-          {(
-            [
-              ["pick", "1. เลือกสกิน"],
-              ["order", "2. จัดเรียง"],
-              ["banner", "3. ทำป้าย"],
-            ] as [Tab, string][]
-          ).map(([key, label]) => (
+        <div className="grid grid-cols-4 gap-1 rounded-xl bg-bg-soft p-1 text-xs sm:text-sm">
+          {STEPS.map(({ key, label }) => (
             <button
               key={key}
               type="button"
-              onClick={() => setTab(key)}
-              className={`rounded-lg px-2 py-2 font-medium transition ${
+              onClick={() => goTo(key)}
+              aria-current={tab === key ? "step" : undefined}
+              className={`rounded-lg px-1 py-2 font-medium transition ${
                 tab === key ? "bg-gold text-bg" : "text-ink-muted hover:text-ink"
               }`}
             >
@@ -262,6 +269,28 @@ export function SkinSorter({
       </div>
 
       {tab === "pick" ? (
+        <div className="mt-3 flex gap-2 text-sm">
+          {(
+            [
+              ["pick", "เลือกสกิน"],
+              ["order", `จัดเรียง (${ordered.length})`],
+            ] as [PickView, string][]
+          ).map(([view, label]) => (
+            <button
+              key={view}
+              type="button"
+              onClick={() => setPickView(view)}
+              className={`rounded-lg border px-3 py-1.5 transition ${
+                pickView === view ? "border-gold bg-gold/10 text-gold" : "border-border text-ink-muted"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {tab === "pick" && pickView === "pick" ? (
         <div className="mt-4 space-y-4">
           <div className="card space-y-3 p-3">
             <input
@@ -353,7 +382,7 @@ export function SkinSorter({
         </div>
       ) : null}
 
-      {tab === "order" ? (
+      {tab === "pick" && pickView === "order" ? (
         <div className="mt-4 space-y-4">
           <div className="card flex flex-wrap items-center gap-2 p-3 text-sm">
             <span className="text-ink-muted">เรียงตาม:</span>
@@ -437,18 +466,14 @@ export function SkinSorter({
         </div>
       ) : null}
 
-      {tab === "banner" ? (
-        <BannerStep
-          info={info}
-          setInfo={setInfo}
-          theme={theme}
-          setTheme={setTheme}
-          showNames={showNames}
-          setShowNames={setShowNames}
-          skins={orderedForBanner}
-          watermark={watermark}
-          wallet={wallet}
-        />
+      {tab === "background" ? (
+        <BackgroundStep design={design} setDesign={setDesign} skins={orderedForBanner} watermark={watermark} />
+      ) : null}
+      {tab === "details" ? (
+        <DetailsStep design={design} setDesign={setDesign} skins={orderedForBanner} watermark={watermark} />
+      ) : null}
+      {tab === "pay" ? (
+        <PayStep design={design} skins={orderedForBanner} watermark={watermark} wallet={wallet} />
       ) : null}
 
       {/* Picker + cropper for the visitor's own skin pictures */}
@@ -487,18 +512,23 @@ export function SkinSorter({
           <p className="text-sm text-ink-muted">
             เลือกแล้ว <span className="text-lg font-bold text-gold">{ordered.length}</span> สกิน
           </p>
-          {tab !== "banner" ? (
-            <button
-              type="button"
-              onClick={() => {
-                setTab(tab === "pick" ? "order" : "banner");
-                window.scrollTo({ top: 0 });
-              }}
-              className="btn-primary"
-            >
-              {tab === "pick" ? "ถัดไป: จัดเรียง →" : "ถัดไป: ทำป้าย →"}
-            </button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {stepIndex > 0 ? (
+              <button type="button" onClick={() => goTo(STEPS[stepIndex - 1].key)} className="btn-secondary px-4 py-2 text-sm">
+                ← ย้อนกลับ
+              </button>
+            ) : null}
+            {stepIndex < STEPS.length - 1 ? (
+              <button
+                type="button"
+                onClick={() => goTo(STEPS[stepIndex + 1].key)}
+                disabled={tab === "pick" && ordered.length === 0}
+                className="btn-primary"
+              >
+                ถัดไป: {STEPS[stepIndex].short} →
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
@@ -586,380 +616,6 @@ function SkinTile({
           {hasUserImage ? <span aria-hidden>✕</span> : <CameraIcon />}
         </button>
       ) : null}
-    </div>
-  );
-}
-
-function BannerStep({
-  info,
-  setInfo,
-  theme,
-  setTheme,
-  showNames,
-  setShowNames,
-  skins,
-  watermark,
-  wallet,
-}: {
-  info: BannerInfo;
-  setInfo: (info: BannerInfo) => void;
-  theme: BannerThemeKey;
-  setTheme: (theme: BannerThemeKey) => void;
-  showNames: boolean;
-  setShowNames: (value: boolean) => void;
-  skins: BannerSkin[];
-  watermark: BannerWatermark;
-  wallet: SorterWallet;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [rendering, setRendering] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [noWatermark, setNoWatermark] = useState(false);
-  const [balance, setBalance] = useState(wallet.balanceCents);
-  const [paidKeys, setPaidKeys] = useState<string[]>([]);
-  const renderId = useRef(0);
-
-  // A banner that was already paid for can be downloaded/shared again for
-  // free, as long as nothing on it changed.
-  const bannerKey = useMemo(
-    () =>
-      JSON.stringify({
-        // a picture added/changed by the visitor makes it a different banner
-        ids: skins.map((s) => (s.imageUrl?.startsWith("data:") ? `${s.id}:${s.imageUrl.length}` : s.id)),
-        info,
-        theme,
-        showNames,
-        noWatermark,
-      }),
-    [skins, info, theme, showNames, noWatermark]
-  );
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(PAID_KEY_STORAGE);
-      if (raw) setPaidKeys(JSON.parse(raw));
-    } catch {
-      // storage unavailable — worst case a re-download is charged again
-    }
-  }, []);
-  const isAdmin = wallet.state === "admin";
-  const onPlan = Boolean(wallet.planUntil);
-  const alreadyPaid = paidKeys.includes(bannerKey);
-  const isPaid = isAdmin || onPlan || alreadyPaid;
-  const costCents = skins.length * wallet.skinPriceCents + (noWatermark ? wallet.noWatermarkCents : 0);
-  const canAfford = balance >= costCents;
-
-  const bannerOptions = useCallback(
-    (preview: boolean) => ({
-      info,
-      skins,
-      theme,
-      showNames,
-      // next/font registers Kanit under a generated family name; read it
-      // back from the page so the canvas uses the same Thai font.
-      fontFamily: getComputedStyle(document.body).fontFamily || "sans-serif",
-      watermark: noWatermark ? null : watermark,
-      preview,
-    }),
-    [info, skins, theme, showNames, noWatermark, watermark]
-  );
-
-  // Re-render (debounced) whenever anything on the banner changes. A newer
-  // render supersedes older ones still waiting on images. Until this exact
-  // banner is paid for, the on-screen copy carries the "ตัวอย่าง" overlay.
-  useEffect(() => {
-    const id = ++renderId.current;
-    setRendering(true);
-    const timer = window.setTimeout(async () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      try {
-        await document.fonts.ready;
-        if (id !== renderId.current) return;
-        const offscreen = document.createElement("canvas");
-        await renderBanner(offscreen, bannerOptions(!isPaid));
-        if (id !== renderId.current) return;
-        canvas.width = offscreen.width;
-        canvas.height = offscreen.height;
-        canvas.getContext("2d")?.drawImage(offscreen, 0, 0);
-        setError(null);
-      } catch {
-        setError("สร้างภาพไม่สำเร็จ ลองใหม่อีกครั้ง");
-      } finally {
-        if (id === renderId.current) setRendering(false);
-      }
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [bannerOptions, isPaid]);
-
-  // Charges the wallet once per distinct banner, then renders a clean copy.
-  const paidBlob = async (): Promise<Blob | null> => {
-    setError(null);
-    setNotice(null);
-    // Plan members still go through the server: it re-checks the plan is
-    // active and logs the (free) download.
-    if (!isAdmin && !alreadyPaid) {
-      const result = await chargeDownloadAction(
-        skins.map((s) => s.id),
-        noWatermark,
-        onPlan
-      );
-      if (!result.ok) {
-        if (result.balanceCents !== undefined) setBalance(result.balanceCents);
-        if (result.reason === "login") window.location.href = "/login?callbackUrl=%2Fsort";
-        setError(result.message);
-        return null;
-      }
-      setBalance(result.balanceCents);
-      const next = [bannerKey, ...paidKeys].slice(0, 30);
-      setPaidKeys(next);
-      try {
-        window.localStorage.setItem(PAID_KEY_STORAGE, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      if (result.costCents > 0) setNotice(`ชำระ ${coins(result.costCents)} คอยน์แล้ว`);
-    }
-    const out = document.createElement("canvas");
-    await renderBanner(out, bannerOptions(false));
-    return new Promise((resolve) => {
-      try {
-        out.toBlob((blob) => resolve(blob), "image/png");
-      } catch {
-        // A cross-origin image without CORS headers taints the canvas.
-        resolve(null);
-      }
-    });
-  };
-
-  const fileName = () => `oscar-skins-${skins.length}-${Date.now()}.png`;
-
-  const saveBlob = (blob: Blob) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName();
-    a.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 5000);
-  };
-
-  const download = async () => {
-    setBusy(true);
-    try {
-      const blob = await paidBlob();
-      if (blob) saveBlob(blob);
-      else setError((e) => e ?? "ดาวน์โหลดไม่สำเร็จ (รูปสกินบางรูปไม่อนุญาตให้ส่งออก)");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const share = async () => {
-    setBusy(true);
-    try {
-      const blob = await paidBlob();
-      if (!blob) return;
-      const file = new File([blob], fileName(), { type: "image/png" });
-      if (navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title: info.title || "ขายไอดี RoV" });
-        } catch (e) {
-          // Safari drops the "user tapped" permission while we waited for
-          // the payment — the banner is paid now, so a second tap works.
-          if (e instanceof DOMException && e.name === "NotAllowedError") {
-            setNotice("ชำระแล้ว — กด “แชร์” อีกครั้งเพื่อเปิดเมนูแชร์");
-          }
-        }
-      } else {
-        saveBlob(blob);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const field = (key: keyof BannerInfo) => ({
-    value: info[key],
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setInfo({ ...info, [key]: e.target.value }),
-  });
-
-  return (
-    <div className="mt-4 grid gap-6 lg:grid-cols-[360px_1fr]">
-      <div className="space-y-4">
-        <div className="card space-y-3 p-4">
-          <h2 className="font-semibold text-ink">ข้อมูลบนป้าย</h2>
-          <div>
-            <label className="mb-1 block text-sm text-ink-muted">หัวข้อ</label>
-            <input {...field("title")} maxLength={60} placeholder="ขายไอดี RoV สกินเยอะ" className="input" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-sm text-ink-muted">แรงค์</label>
-              <input {...field("rank")} list="rank-options" maxLength={30} placeholder="เซียน" className="input" />
-              <datalist id="rank-options">
-                {RANK_TIERS.map((rank) => (
-                  <option key={rank} value={rank} />
-                ))}
-              </datalist>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm text-ink-muted">จำนวนฮีโร่</label>
-              <input {...field("heroCount")} inputMode="numeric" maxLength={6} placeholder="120" className="input" />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-ink-muted">ราคา (บาท)</label>
-            <input {...field("price")} inputMode="numeric" maxLength={12} placeholder="2,500" className="input" />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-ink-muted">ช่องทางติดต่อ</label>
-            <input {...field("contact")} maxLength={80} placeholder="FB: ชื่อเพจ / Line: @id" className="input" />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-ink-muted">หมายเหตุ</label>
-            <input {...field("note")} maxLength={100} placeholder="ผูก FB เปลี่ยนได้ทันที" className="input" />
-          </div>
-        </div>
-
-        <div className="card space-y-3 p-4">
-          <h2 className="font-semibold text-ink">ตกแต่ง (ฟรี)</h2>
-          <div className="grid grid-cols-4 gap-2">
-            {(Object.keys(BANNER_THEMES) as BannerThemeKey[]).map((key) => {
-              const t = BANNER_THEMES[key];
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setTheme(key)}
-                  className={`rounded-xl border-2 p-1 text-xs transition ${
-                    theme === key ? "border-gold" : "border-transparent"
-                  }`}
-                >
-                  <span
-                    className="block h-10 rounded-lg"
-                    style={{ background: `linear-gradient(135deg, ${t.bgTop}, ${t.accent})` }}
-                  />
-                  <span className="mt-1 block text-ink-muted">{t.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          <label className="flex items-center gap-2 text-sm text-ink">
-            <input type="checkbox" checked={showNames} onChange={(e) => setShowNames(e.target.checked)} />
-            แสดงชื่อสกินบนภาพ
-          </label>
-          <label className="flex items-center gap-2 text-sm text-ink">
-            <input type="checkbox" checked={noWatermark} onChange={(e) => setNoWatermark(e.target.checked)} />
-            ไม่มีลายน้ำ OSCAR {onPlan ? "(ฟรี รายเดือน)" : `(+${coins(wallet.noWatermarkCents)} คอยน์)`}
-          </label>
-        </div>
-
-        {wallet.state === "guest" ? (
-          <GuestPanel wallet={wallet} costCents={costCents} />
-        ) : (
-          <div className="card space-y-3 p-4">
-            <div className="flex items-baseline justify-between gap-2 text-sm">
-              <span className="text-ink-muted">
-                {skins.length} สกิน × {coins(wallet.skinPriceCents)}
-                {noWatermark ? ` + ${coins(wallet.noWatermarkCents)}` : ""}
-              </span>
-              <span className="text-lg font-bold text-gold">
-                {isAdmin ? "ฟรี (แอดมิน)" : onPlan ? "ฟรี (รายเดือน)" : isPaid ? "จ่ายแล้ว" : `${coins(costCents)} คอยน์`}
-              </span>
-            </div>
-            {onPlan ? (
-              <p className="text-xs text-emerald-300">
-                รายเดือนใช้ได้ถึง {new Date(wallet.planUntil!).toLocaleDateString("th-TH", { dateStyle: "medium" })} ·
-                ดาวน์โหลดไม่จำกัด
-              </p>
-            ) : null}
-            {!isAdmin && !onPlan ? (
-              <p className="text-xs text-ink-muted">
-                คอยน์คงเหลือ <span className="font-semibold text-ink">{coins(balance)}</span> ·{" "}
-                <a href="/account" className="text-gold hover:underline">
-                  เติมคอยน์
-                </a>
-              </p>
-            ) : null}
-            {isPaid || canAfford ? (
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={download}
-                  disabled={rendering || busy || skins.length === 0}
-                  className="btn-primary"
-                >
-                  {busy ? "กำลังเตรียม..." : isPaid ? "ดาวน์โหลด" : `ดาวน์โหลด · ${coins(costCents)}`}
-                </button>
-                <button
-                  type="button"
-                  onClick={share}
-                  disabled={rendering || busy || skins.length === 0}
-                  className="btn-secondary"
-                >
-                  แชร์
-                </button>
-              </div>
-            ) : (
-              <a href="/account" className="btn-primary block">
-                คอยน์ไม่พอ — เติมคอยน์
-              </a>
-            )}
-            {!isPaid && !isAdmin ? (
-              <p className="text-center text-xs text-ink-muted">
-                จ่ายครั้งเดียวต่อป้าย ดาวน์โหลดซ้ำป้ายเดิมไม่เสียเพิ่ม
-                {wallet.planPrice > 0 ? (
-                  <>
-                    {" "}· ทำบ่อย?{" "}
-                    <a href="/account" className="text-gold hover:underline">
-                      รายเดือน {wallet.planPrice} คอยน์ ไม่จำกัด
-                    </a>
-                  </>
-                ) : null}
-              </p>
-            ) : null}
-          </div>
-        )}
-        {notice ? <p className="text-sm text-emerald-300">{notice}</p> : null}
-        {error ? <p className="text-sm text-rose-300">{error}</p> : null}
-      </div>
-
-      <div className="min-w-0">
-        <div className="card relative overflow-hidden p-2">
-          <canvas ref={canvasRef} className="block h-auto w-full rounded-lg" />
-          {rendering ? (
-            <span className="absolute right-4 top-4 rounded-full bg-bg/80 px-3 py-1 text-xs text-ink-muted">
-              กำลังสร้างภาพ...
-            </span>
-          ) : null}
-        </div>
-        {!isPaid ? (
-          <p className="mt-2 text-center text-xs text-ink-muted">ภาพตัวอย่าง — ลายน้ำ “ตัวอย่าง” จะหายเมื่อดาวน์โหลด</p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function GuestPanel({ wallet, costCents }: { wallet: SorterWallet; costCents: number }) {
-  return (
-    <div className="card space-y-3 border-gold/50 p-4 text-center">
-      <p className="font-semibold text-ink">
-        ป้ายนี้ {coins(costCents)} คอยน์{" "}
-        <span className="text-sm font-normal text-ink-muted">({coins(wallet.skinPriceCents)} คอยน์/สกิน)</span>
-      </p>
-      <p className="text-sm text-ink-muted">
-        สมัครด้วยอีเมลเพื่อดาวน์โหลด
-        {wallet.signupBonusCents > 0 ? ` · รับฟรี ${coins(wallet.signupBonusCents)} คอยน์` : ""} · ป้ายที่ทำไว้ไม่หาย
-      </p>
-      <a href="/register?callbackUrl=%2Fsort" className="btn-primary block">
-        สมัครสมาชิก
-      </a>
-      <a href="/login?callbackUrl=%2Fsort" className="block text-sm text-gold hover:underline">
-        มีบัญชีแล้ว? เข้าสู่ระบบ
-      </a>
     </div>
   );
 }

@@ -13,12 +13,45 @@ export type BannerSkin = {
 };
 
 export type BannerInfo = {
-  title: string;
-  rank: string;
+  // product / account details
+  code: string;
   heroCount: string;
+  skinCount: string; // blank = number of selected skins
+  winRate: string;
+  matches: string;
+  // price
   price: string;
+  priceOnly: boolean; // show just the number, without "ราคา" / "บาท"
+  installment: string;
+  detail: string;
+  // rank & extras
+  rank: string;
+  vip: string;
+  nameCards: string;
+  coupons: string;
+  extraItem: string;
+  // footer
   contact: string;
   note: string;
+};
+
+export const EMPTY_INFO: BannerInfo = {
+  code: "",
+  heroCount: "",
+  skinCount: "",
+  winRate: "",
+  matches: "",
+  price: "",
+  priceOnly: false,
+  installment: "",
+  detail: "",
+  rank: "",
+  vip: "",
+  nameCards: "",
+  coupons: "",
+  extraItem: "",
+  contact: "",
+  note: "",
 };
 
 export const BANNER_THEMES = {
@@ -66,11 +99,28 @@ export const BANNER_THEMES = {
 
 export type BannerThemeKey = keyof typeof BANNER_THEMES;
 
-export type BannerOptions = {
+// Everything the visitor can design (as opposed to what is being sold).
+export type BannerDesign = {
   info: BannerInfo;
-  skins: BannerSkin[];
   theme: BannerThemeKey;
   showNames: boolean;
+  // Header picture the visitor uploaded (cropped data URL), or null.
+  background: string | null;
+  // Skins per row; 0 = choose automatically from the number of skins.
+  skinsPerRow: number;
+};
+
+export const DEFAULT_DESIGN: BannerDesign = {
+  info: EMPTY_INFO,
+  theme: "royal",
+  showNames: true,
+  background: null,
+  skinsPerRow: 0,
+};
+
+export type BannerOptions = {
+  design: BannerDesign;
+  skins: BannerSkin[];
   fontFamily: string;
   watermark: BannerWatermark | null;
   // Until a banner is paid for, the on-screen copy gets a tiled "ตัวอย่าง"
@@ -80,7 +130,10 @@ export type BannerOptions = {
 
 export type BannerWatermark = { text: string; brand: string; suffix: string };
 
-const WIDTH = 1080;
+export const BANNER_WIDTH = 1080;
+// Header is a fixed 1080x600 so the background cropper can match it exactly.
+export const BANNER_HEADER_HEIGHT = 600;
+const WIDTH = BANNER_WIDTH;
 const PAD = 48;
 const GAP = 12;
 
@@ -214,82 +267,167 @@ function drawChip(
   return w;
 }
 
-// --- Main entry ------------------------------------------------------------
+// --- Header helpers ----------------------------------------------------------
 
-export async function renderBanner(canvas: HTMLCanvasElement, options: BannerOptions) {
-  const { info, skins, showNames, fontFamily: font, watermark } = options;
-  const theme = BANNER_THEMES[options.theme] ?? BANNER_THEMES.royal;
+const digitsOnly = (value: string) => value.replace(/[^0-9]/g, "");
 
-  const cols = columnsFor(skins.length);
-  const tileW = (WIDTH - PAD * 2 - GAP * (cols - 1)) / cols;
-  const tileH = Math.round(tileW * 1.25);
-  const rows = Math.max(1, Math.ceil(skins.length / cols));
+// "1290" -> "1,290"; non-numeric text is left as typed (never "NaN").
+function fmtNum(value: string): string {
+  const d = digitsOnly(value);
+  if (!d || d.length > 12) return value.trim();
+  return Number(d).toLocaleString("en-US");
+}
 
-  const headerH = 300;
-  const gridH = rows * tileH + (rows - 1) * GAP;
-  const footerH = info.contact || info.note ? 170 : 110;
-  const height = headerH + gridH + footerH;
+type Run = { text: string; color: string; scale?: number };
 
-  // Load all pictures before touching the canvas so the visible preview
-  // never flashes half-drawn.
-  const images = await Promise.all(skins.map((skin) => (skin.imageUrl ? loadImage(skin.imageUrl) : null)));
-
-  canvas.width = WIDTH;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  // Background
-  const bg = ctx.createLinearGradient(0, 0, 0, height);
-  bg.addColorStop(0, theme.bgTop);
-  bg.addColorStop(Math.min(1, 600 / height), theme.bgBottom);
-  bg.addColorStop(1, theme.bgBottom);
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, WIDTH, height);
-
-  const glow = ctx.createRadialGradient(WIDTH * 0.85, 0, 0, WIDTH * 0.85, 0, 520);
-  glow.addColorStop(0, theme.accent2 + "55");
-  glow.addColorStop(1, theme.accent2 + "00");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, WIDTH, 600);
-
-  // Header: title + price
-  ctx.textBaseline = "alphabetic";
+// Draws coloured pieces on one baseline with a soft shadow so the text stays
+// readable over any picture; shrinks the size until the line fits maxW.
+function drawRuns(
+  ctx: CanvasRenderingContext2D,
+  runs: Run[],
+  x: number,
+  y: number,
+  size: number,
+  maxW: number,
+  font: string,
+  weight = 700
+) {
+  let s = size;
+  const measure = () => {
+    let w = 0;
+    for (const r of runs) {
+      ctx.font = `${weight} ${Math.round(s * (r.scale ?? 1))}px ${font}`;
+      w += ctx.measureText(r.text).width;
+    }
+    return w;
+  };
+  while (s > 22 && measure() > maxW) s -= 2;
+  ctx.save();
   ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.shadowColor = "rgba(0,0,0,0.8)";
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 2;
+  let cx = x;
+  for (const r of runs) {
+    ctx.font = `${weight} ${Math.round(s * (r.scale ?? 1))}px ${font}`;
+    ctx.fillStyle = r.color;
+    ctx.fillText(r.text, cx, y);
+    cx += ctx.measureText(r.text).width;
+  }
+  ctx.restore();
+  return cx;
+}
 
-  const priceText = info.price.trim() ? `฿${info.price.trim()}` : "";
-  ctx.font = `700 72px ${font}`;
-  const priceW = priceText ? ctx.measureText(priceText).width : 0;
+function drawHeader(
+  ctx: CanvasRenderingContext2D,
+  design: BannerDesign,
+  skins: BannerSkin[],
+  bg: HTMLImageElement | null,
+  font: string
+) {
+  const { info } = design;
+  const theme = BANNER_THEMES[design.theme] ?? BANNER_THEMES.royal;
+  const H = BANNER_HEADER_HEIGHT;
+  const innerW = WIDTH - PAD * 2;
 
-  ctx.font = `700 60px ${font}`;
-  ctx.fillStyle = theme.text;
-  const title = info.title.trim() || "ขายไอดี RoV";
-  ctx.fillText(fitText(ctx, title, WIDTH - PAD * 2 - priceW - 40), PAD, PAD + 60);
+  // Background: the visitor's picture, or a themed gradient with soft glows.
+  if (bg) {
+    drawCover(ctx, bg, 0, 0, WIDTH, H);
+    const shade = ctx.createLinearGradient(0, 0, WIDTH, 0);
+    shade.addColorStop(0, "rgba(0,0,0,0.72)");
+    shade.addColorStop(0.55, "rgba(0,0,0,0.35)");
+    shade.addColorStop(1, "rgba(0,0,0,0.05)");
+    ctx.fillStyle = shade;
+    ctx.fillRect(0, 0, WIDTH, H);
+  } else {
+    const g = ctx.createLinearGradient(0, 0, WIDTH, H);
+    g.addColorStop(0, theme.bgTop);
+    g.addColorStop(1, theme.bgBottom);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, WIDTH, H);
+    const glow = ctx.createRadialGradient(WIDTH * 0.85, H * 0.25, 0, WIDTH * 0.85, H * 0.25, 520);
+    glow.addColorStop(0, theme.accent2 + "66");
+    glow.addColorStop(1, theme.accent2 + "00");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, WIDTH, H);
+    ctx.save();
+    ctx.globalAlpha = 0.07;
+    ctx.strokeStyle = theme.accent;
+    ctx.lineWidth = 2;
+    for (let i = -H; i < WIDTH; i += 46) {
+      ctx.beginPath();
+      ctx.moveTo(i, H);
+      ctx.lineTo(i + H, 0);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // Fade the bottom into the page so the skin grid joins smoothly.
+  const fade = ctx.createLinearGradient(0, H - 170, 0, H);
+  fade.addColorStop(0, "rgba(0,0,0,0)");
+  fade.addColorStop(1, theme.bgBottom);
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, H - 170, WIDTH, 170);
 
-  if (priceText) {
-    ctx.font = `700 72px ${font}`;
-    ctx.textAlign = "right";
-    ctx.fillStyle = theme.accent;
-    ctx.fillText(priceText, WIDTH - PAD, PAD + 64);
-    ctx.textAlign = "left";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+
+  // Product code
+  if (info.code.trim()) {
+    drawRuns(ctx, [{ text: info.code.trim(), color: theme.accent }], PAD, 70, 36, innerW, font, 700);
   }
 
-  // Stat chips
-  let chipX = PAD;
-  const chipY = PAD + 100;
+  // Big line: heroes & skins
+  const skinTotal = info.skinCount.trim() ? fmtNum(info.skinCount) : String(skins.length);
+  const bigRuns: Run[] = [];
+  if (info.heroCount.trim()) {
+    bigRuns.push({ text: "ฮีโร่ ", color: "#ffffff" }, { text: `${fmtNum(info.heroCount)}  `, color: theme.accent });
+  }
+  bigRuns.push({ text: "สกิน ", color: "#ffffff" }, { text: skinTotal, color: theme.accent });
+  drawRuns(ctx, bigRuns, PAD, 160, 88, innerW, font, 800);
+
+  // Win rate & matches
+  const statRuns: Run[] = [];
+  if (info.winRate.trim()) {
+    statRuns.push(
+      { text: "อัตราชนะ ", color: "#ffffff" },
+      { text: `${info.winRate.replace(/%/g, "").trim()}%`, color: theme.accent },
+      { text: "   ", color: "#ffffff" }
+    );
+  }
+  if (info.matches.trim()) {
+    statRuns.push({ text: "จำนวนเล่น ", color: "#ffffff" }, { text: fmtNum(info.matches), color: theme.accent });
+  }
+  if (statRuns.length) drawRuns(ctx, statRuns, PAD, 216, 40, innerW, font, 600);
+
+  // Rank / VIP / items as chips, wrapping onto a second row if needed
   const chips: [string, string][] = [];
   if (info.rank.trim()) chips.push(["แรงค์", info.rank.trim()]);
-  if (info.heroCount.trim()) chips.push(["ฮีโร่", info.heroCount.trim()]);
-  chips.push(["สกิน", String(skins.length)]);
+  if (info.vip.trim()) chips.push(["VIP", info.vip.trim()]);
+  if (info.nameCards.trim()) chips.push(["บัตรเปลี่ยนชื่อ", `${fmtNum(info.nameCards)} ใบ`]);
+  if (info.coupons.trim()) chips.push(["คูปอง", `${fmtNum(info.coupons)} ใบ`]);
+  if (info.extraItem.trim()) chips.push(["", info.extraItem.trim()]);
+  let cx = PAD;
+  let cy = 250;
   for (const [label, value] of chips) {
-    chipX += drawChip(ctx, chipX, chipY, label, value, theme.accent, theme.text, font) + 12;
+    ctx.font = `400 22px ${font}`;
+    const labelW = label ? ctx.measureText(label).width : 0;
+    ctx.font = `600 26px ${font}`;
+    const w = labelW + ctx.measureText(value).width + 44;
+    if (cx + w > WIDTH - PAD && cx > PAD) {
+      cx = PAD;
+      cy += 58;
+    }
+    cx += drawChip(ctx, cx, cy, label, value, theme.accent, "#ffffff", font) + 12;
   }
+  const chipsBottom = chips.length ? cy + 48 : 232;
 
   // Tier summary
   const counts = new Map<string, number>();
   for (const skin of skins) counts.set(skin.tier, (counts.get(skin.tier) ?? 0) + 1);
   let tx = PAD;
-  const ty = chipY + 100;
+  const ty = chipsBottom + 34;
   ctx.font = `500 24px ${font}`;
   ctx.textBaseline = "middle";
   for (const tier of SKIN_TIERS) {
@@ -302,17 +440,70 @@ export async function renderBanner(canvas: HTMLCanvasElement, options: BannerOpt
     ctx.beginPath();
     ctx.arc(tx + 7, ty, 7, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = theme.text;
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.8)";
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = "#ffffff";
     ctx.fillText(text, tx + 22, ty + 1);
+    ctx.restore();
     tx += w + 50;
   }
+  ctx.textBaseline = "alphabetic";
 
-  // Divider
-  const divider = ctx.createLinearGradient(PAD, 0, WIDTH - PAD, 0);
-  divider.addColorStop(0, theme.accent);
-  divider.addColorStop(1, theme.accent + "00");
-  ctx.fillStyle = divider;
-  ctx.fillRect(PAD, headerH - 26, WIDTH - PAD * 2, 3);
+  // Price block (bottom-left of the header)
+  if (info.installment.trim()) {
+    drawRuns(ctx, [{ text: info.installment.trim(), color: "#ffffff" }], PAD, H - 150, 32, innerW, font, 600);
+  }
+  if (info.price.trim()) {
+    const num = fmtNum(info.price);
+    const runs: Run[] = info.priceOnly
+      ? [{ text: num, color: theme.accent }]
+      : [
+          { text: "ราคา ", color: "#ffffff", scale: 0.6 },
+          { text: num, color: theme.accent },
+          { text: " บาท", color: "#ffffff", scale: 0.6 },
+        ];
+    drawRuns(ctx, runs, PAD, H - 62, 104, innerW, font, 800);
+  }
+  if (info.detail.trim()) {
+    drawRuns(ctx, [{ text: info.detail.trim(), color: theme.muted }], PAD, H - 18, 28, innerW, font, 500);
+  }
+}
+
+// --- Main entry ------------------------------------------------------------
+
+export async function renderBanner(canvas: HTMLCanvasElement, options: BannerOptions) {
+  const { design, skins, fontFamily: font, watermark } = options;
+  const { info, showNames } = design;
+  const theme = BANNER_THEMES[design.theme] ?? BANNER_THEMES.royal;
+
+  const cols = design.skinsPerRow > 0 ? Math.min(12, Math.max(3, design.skinsPerRow)) : columnsFor(skins.length);
+  const tileW = (WIDTH - PAD * 2 - GAP * (cols - 1)) / cols;
+  const tileH = Math.round(tileW * 1.25);
+  const rows = Math.max(1, Math.ceil(skins.length / cols));
+
+  const headerH = BANNER_HEADER_HEIGHT;
+  const gridH = rows * tileH + (rows - 1) * GAP;
+  const footerH = info.contact || info.note ? 170 : 110;
+  const height = headerH + gridH + footerH;
+
+  // Load all pictures before touching the canvas so the visible preview
+  // never flashes half-drawn.
+  const [bgImage, ...images] = await Promise.all([
+    design.background ? loadImage(design.background) : null,
+    ...skins.map((skin) => (skin.imageUrl ? loadImage(skin.imageUrl) : null)),
+  ]);
+
+  canvas.width = WIDTH;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  // Page background below the header
+  ctx.fillStyle = theme.bgBottom;
+  ctx.fillRect(0, 0, WIDTH, height);
+
+  drawHeader(ctx, design, skins, bgImage, font);
 
   // Skin grid
   const radius = Math.max(6, tileW * 0.08);

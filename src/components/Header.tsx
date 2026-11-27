@@ -38,7 +38,7 @@ export async function Header() {
           <div className="flex items-center gap-2">
             <Link
               href="/admin"
-              className="rounded-full bg-violet px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
+              className="whitespace-nowrap rounded-full bg-violet px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
             >
               แอดมิน
             </Link>

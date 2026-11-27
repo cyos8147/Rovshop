@@ -52,7 +52,7 @@ export default async function AdminHeroSkinsPage({
 
       <HeroForm
         action={updateHeroAction.bind(null, hero.id)}
-        defaultValues={{ name: hero.name, role: hero.role, imageUrl: hero.imageUrl }}
+        defaultName={hero.name}
         submitLabel="บันทึกข้อมูลฮีโร่"
       />
 

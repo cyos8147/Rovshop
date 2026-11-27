@@ -118,6 +118,11 @@ export function SkinSorter({
     void removeUserImage(skinId);
   };
 
+  // Tiers (SSS, SS ...) and hero roles are optional. The related filters,
+  // sort option and labels only appear when the catalog actually uses them.
+  const tierVariety = useMemo(() => new Set(heroes.flatMap((h) => h.skins.map((sk) => sk.tier))).size > 1, [heroes]);
+  const roleVariety = useMemo(() => new Set(heroes.map((h) => h.role)).size > 1, [heroes]);
+
   const [tab, setTab] = useState<Tab>("pick");
   const [selected, setSelected] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>("tier");
@@ -301,22 +306,26 @@ export function SkinSorter({
               className="input"
             />
             <div className="flex flex-wrap gap-2">
-              <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input w-auto">
-                <option value="">ทุกตำแหน่ง</option>
-                {HERO_ROLES.map((role) => (
-                  <option key={role} value={role}>
-                    {HERO_ROLE_LABELS[role]}
-                  </option>
-                ))}
-              </select>
-              <select value={tierFilter} onChange={(e) => setTierFilter(e.target.value)} className="input w-auto">
-                <option value="">ทุกระดับ</option>
-                {SKIN_TIERS.map((tier) => (
-                  <option key={tier} value={tier}>
-                    {SKIN_TIER_LABELS[tier]}
-                  </option>
-                ))}
-              </select>
+              {roleVariety ? (
+                <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input w-auto">
+                  <option value="">ทุกตำแหน่ง</option>
+                  {HERO_ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {HERO_ROLE_LABELS[role]}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              {tierVariety ? (
+                <select value={tierFilter} onChange={(e) => setTierFilter(e.target.value)} className="input w-auto">
+                  <option value="">ทุกระดับ</option>
+                  {SKIN_TIERS.map((tier) => (
+                    <option key={tier} value={tier}>
+                      {SKIN_TIER_LABELS[tier]}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               <label className="flex items-center gap-2 rounded-xl border border-border px-3 text-sm text-ink-muted">
                 <input
                   type="checkbox"
@@ -343,7 +352,8 @@ export function SkinSorter({
                   <h2 className="font-semibold text-ink">
                     {hero.name}{" "}
                     <span className="text-xs font-normal text-ink-muted">
-                      {HERO_ROLE_LABELS[hero.role as HeroRole] ?? hero.role} · {picked}/{fullHero.skins.length}
+                      {roleVariety ? `${HERO_ROLE_LABELS[hero.role as HeroRole] ?? hero.role} · ` : ""}
+                      {picked}/{fullHero.skins.length}
                     </span>
                   </h2>
                   <button
@@ -388,7 +398,7 @@ export function SkinSorter({
             <span className="text-ink-muted">เรียงตาม:</span>
             {(
               [
-                ["tier", "ระดับความหายาก"],
+                ...(tierVariety ? ([["tier", "ระดับความหายาก"]] as [SortMode, string][]) : []),
                 ["hero", "ชื่อฮีโร่"],
                 ["manual", "กำหนดเอง"],
               ] as [SortMode, string][]
@@ -398,7 +408,9 @@ export function SkinSorter({
                 type="button"
                 onClick={() => applySort(mode)}
                 className={`rounded-lg border px-3 py-1.5 transition ${
-                  sortMode === mode ? "border-gold bg-gold/10 text-gold" : "border-border text-ink-muted"
+                  (sortMode === "tier" && !tierVariety ? "hero" : sortMode) === mode
+                    ? "border-gold bg-gold/10 text-gold"
+                    : "border-border text-ink-muted"
                 }`}
               >
                 {label}
@@ -421,12 +433,14 @@ export function SkinSorter({
             {ordered.map((skin, index) => (
               <li key={skin.id} className="card flex items-center gap-3 p-2">
                 <span className="w-7 text-center text-xs text-ink-muted">{index + 1}</span>
-                <span
-                  className="rounded-full px-2 py-0.5 text-[11px] font-bold text-bg"
-                  style={{ backgroundColor: tierColor(skin.tier) }}
-                >
-                  {SKIN_TIER_LABELS[skin.tier as SkinTier] ?? skin.tier}
-                </span>
+                {skin.tier !== "NORMAL" ? (
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[11px] font-bold text-bg"
+                    style={{ backgroundColor: tierColor(skin.tier) }}
+                  >
+                    {SKIN_TIER_LABELS[skin.tier as SkinTier] ?? skin.tier}
+                  </span>
+                ) : null}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-ink">{skin.name}</p>
                   <p className="truncate text-xs text-ink-muted">{skin.heroName}</p>

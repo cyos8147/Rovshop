@@ -2,10 +2,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import { formatCoins } from "@/lib/coins";
-import { SKIN_TIER_COLORS, SKIN_TIER_LABELS, type SkinTier } from "@/lib/types";
 
 // Decorative tiles for the hero mock-up of a banner.
-const MOCK_TILES: SkinTier[] = ["SSS", "SSS", "SS", "SS", "S_PLUS", "S_PLUS", "S", "S", "A", "LIMITED", "A", "NORMAL"];
+const MOCK_TILES = Array.from({ length: 12 }, (_, i) => i);
 
 export default async function HomePage() {
   const [settings, skinCount] = await Promise.all([getSettings(), prisma.skin.count()]);
@@ -62,21 +61,11 @@ export default async function HomePage() {
               <p className="text-2xl font-black text-gold">฿3,990</p>
             </div>
             <div className="mt-4 grid grid-cols-4 gap-1.5">
-              {MOCK_TILES.map((tier, i) => (
+              {MOCK_TILES.map((i) => (
                 <div
                   key={i}
-                  className="relative aspect-[4/5] rounded-lg bg-gradient-to-br from-violet/40 to-bg-soft"
-                  style={{ border: `2px solid ${SKIN_TIER_COLORS[tier]}` }}
-                >
-                  {tier !== "NORMAL" ? (
-                    <span
-                      className="absolute left-1 top-1 rounded-full px-1 text-[9px] font-bold text-bg"
-                      style={{ backgroundColor: SKIN_TIER_COLORS[tier] }}
-                    >
-                      {SKIN_TIER_LABELS[tier]}
-                    </span>
-                  ) : null}
-                </div>
+                  className="aspect-[4/5] rounded-lg border-2 border-violet/50 bg-gradient-to-br from-violet/40 to-bg-soft"
+                />
               ))}
             </div>
             <p className="mt-3 text-right text-[11px] text-ink-muted">

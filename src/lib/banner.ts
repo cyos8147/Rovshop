@@ -432,7 +432,7 @@ function drawHeader(
   ctx.textBaseline = "middle";
   for (const tier of SKIN_TIERS) {
     const n = counts.get(tier);
-    if (!n) continue;
+    if (!n || tier === "NORMAL") continue;
     const text = `${tierLabel(tier)} ×${n}`;
     const w = ctx.measureText(text).width;
     if (tx + w + 30 > WIDTH - PAD) break;

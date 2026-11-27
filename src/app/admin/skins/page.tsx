@@ -3,7 +3,6 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { createHeroAction, importCatalogAction } from "@/lib/actions/skins";
 import { HeroForm, ImportCatalogForm } from "@/components/SkinAdmin";
-import { HERO_ROLE_LABELS, type HeroRole } from "@/lib/types";
 
 export const metadata: Metadata = { title: "คลังสกิน" };
 
@@ -93,7 +92,7 @@ export default async function AdminSkinsPage({ searchParams }: { searchParams: P
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium text-ink">{hero.name}</p>
               <p className="text-xs text-ink-muted">
-                {HERO_ROLE_LABELS[hero.role as HeroRole] ?? hero.role} · {hero._count.skins} สกิน
+                {hero._count.skins} สกิน
                 {missing.get(hero.id) ? <span className="text-gold"> · ขาดรูป {missing.get(hero.id)}</span> : null}
               </p>
             </div>

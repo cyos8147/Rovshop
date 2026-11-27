@@ -1,3 +1,4 @@
+import { LogoMark } from "@/components/Logo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LoginForm } from "@/components/LoginForm";
@@ -16,6 +17,7 @@ export default async function LoginPage({
 
   return (
     <div className="mx-auto max-w-md px-4 py-12">
+      <LogoMark className="mx-auto mb-3 h-12 w-12" />
       <h1 className="text-center text-2xl font-bold text-ink">เข้าสู่ระบบ</h1>
       <div className="mt-6">
         <LoginForm callbackUrl={callbackUrl} />

@@ -7,8 +7,16 @@
     @apply border-border;
   }
 
+  /* Same faint diagonal lines on every page. */
   body {
     background-color: #09061a;
+    background-image: repeating-linear-gradient(
+      118deg,
+      transparent 0,
+      transparent 260px,
+      rgba(165, 139, 255, 0.05) 260px,
+      rgba(165, 139, 255, 0.05) 261px
+    );
   }
 
   ::selection {

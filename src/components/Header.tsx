@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { SignOutButton } from "@/components/SignOutButton";
 import { Logo } from "@/components/Logo";
+import { NavLinks } from "@/components/NavLinks";
 import { prisma } from "@/lib/prisma";
 import { formatCoins } from "@/lib/coins";
 
@@ -19,17 +20,7 @@ export async function Header() {
           <Logo />
         </Link>
 
-        <nav className="hidden items-center gap-6 text-sm text-ink-muted md:flex">
-          <Link href="/sort" className="transition hover:text-gold">
-            ทำป้ายสกิน RoV
-          </Link>
-          <Link href="/#pricing" className="transition hover:text-gold">
-            ราคา
-          </Link>
-          <Link href="/faq" className="transition hover:text-gold">
-            คำถามที่พบบ่อย
-          </Link>
-        </nav>
+        <NavLinks />
 
         {session?.user?.role === "ADMIN" ? (
           <div className="flex items-center gap-2">

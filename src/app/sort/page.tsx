@@ -29,7 +29,7 @@ export default async function SortPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 pt-8">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">
+        <h1 className="border-l-4 border-gold pl-4 text-2xl font-bold text-ink sm:text-3xl">
           เรียงสกิน <span className="text-gold">ทำป้าย RoV</span>
         </h1>
         <p className="mt-1 text-sm text-ink-muted">

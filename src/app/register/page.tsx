@@ -1,3 +1,4 @@
+import { LogoMark } from "@/components/Logo";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { RegisterForm } from "@/components/RegisterForm";
@@ -21,6 +22,7 @@ export default async function RegisterPage({
 
   return (
     <div className="mx-auto max-w-md px-4 py-12">
+      <LogoMark className="mx-auto mb-3 h-12 w-12" />
       <h1 className="text-center text-2xl font-bold text-ink">
         สมัครสมาชิก{bonus ? <> รับฟรี <span className="text-gold">{bonus} คอยน์</span></> : null}
       </h1>

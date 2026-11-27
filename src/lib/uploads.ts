@@ -10,9 +10,24 @@ const ALLOWED_IMAGE_MIME: Record<string, string> = {
 
 export const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB (Server Action request limit is 6 MB, see next.config.js)
 
+// Env values pasted into a dashboard often carry stray quotes or spaces.
+function cleanEnv(value: string | undefined): string {
+  return (value ?? "").trim().replace(/^["']+|["']+$/g, "").trim();
+}
+
+const JWT_SHAPE = /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/;
+
+// What kind of key this is, for the admin-only error message. Never the key.
+function keyKind(key: string): string {
+  if (key.startsWith("sb_secret_")) return "sb_secret";
+  if (key.startsWith("sb_publishable_")) return "sb_publishable (ผิดชนิด ต้องใช้ secret)";
+  if (JWT_SHAPE.test(key)) return "jwt";
+  return `ไม่รู้จัก ยาว ${key.length} ตัว`;
+}
+
 function getSupabaseAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const serviceKey = cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!url || !serviceKey) {
     throw new Error(
       "ยังไม่ได้ตั้งค่า Supabase Storage — กรุณาตั้งค่า NEXT_PUBLIC_SUPABASE_URL และ SUPABASE_SERVICE_ROLE_KEY"
@@ -20,21 +35,23 @@ function getSupabaseAdminClient() {
   }
   // Service-role key only ever runs on the server (this file is
   // "server-only") — never send it to a client component.
-  // New-style secret keys ("sb_secret_...") are not JWTs. supabase-js also
-  // sends the key as a Bearer token, which Storage rejects ("Invalid Compact
-  // JWS"), so for those keys only the apikey header is sent.
-  const isNewStyleKey = serviceKey.startsWith("sb_");
+  //
+  // supabase-js sends the key as a Bearer token too. That is right for the
+  // legacy JWT key, but a new-style "sb_secret_..." key is not a JWT and
+  // Storage rejects it ("Invalid Compact JWS"). So when the key is not a JWT,
+  // only the apikey header is sent.
+  const isJwt = JWT_SHAPE.test(serviceKey);
   return createClient(url, serviceKey, {
     auth: { persistSession: false },
-    global: isNewStyleKey
-      ? {
+    global: isJwt
+      ? undefined
+      : {
           fetch: (input, init) => {
             const headers = new Headers(init?.headers);
-            if (headers.get("authorization") === `Bearer ${serviceKey}`) headers.delete("authorization");
+            headers.delete("authorization");
             return fetch(input, { ...init, headers });
           },
-        }
-      : undefined,
+        },
   });
 }
 
@@ -74,8 +91,9 @@ export async function saveUploadedImage(file: File): Promise<string> {
   if (error) {
     // Only admins upload skin pictures, so the real reason is shown to them
     // (and logged) to make a wrong key or bucket name easy to spot.
-    console.error("Supabase image upload failed", { bucket, message: error.message });
-    throw new Error(`อัปโหลดรูปภาพไม่สำเร็จ (${error.message}) — bucket: ${bucket}`);
+    const kind = keyKind(cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY));
+    console.error("Supabase image upload failed", { bucket, message: error.message, keyKind: kind });
+    throw new Error(`อัปโหลดรูปภาพไม่สำเร็จ (${error.message}) — bucket: ${bucket}, key: ${kind}`);
   }
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(filename);

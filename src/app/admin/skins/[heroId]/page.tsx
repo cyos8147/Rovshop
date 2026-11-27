@@ -15,15 +15,26 @@ import { skinTierRank } from "@/lib/types";
 
 export const metadata: Metadata = { title: "จัดการสกินของฮีโร่" };
 
-export default async function AdminHeroSkinsPage({ params }: { params: Promise<{ heroId: string }> }) {
+export default async function AdminHeroSkinsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ heroId: string }>;
+  searchParams: Promise<{ missing?: string }>;
+}) {
   const { heroId } = await params;
+  const { missing } = await searchParams;
+  const onlyMissing = missing === "1";
   const hero = await prisma.hero.findUnique({
     where: { id: heroId },
     include: { skins: true },
   });
   if (!hero) notFound();
 
-  const skins = [...hero.skins].sort(
+  const missingCount = hero.skins.filter((skin) => !skin.imageUrl).length;
+  const skins = hero.skins
+    .filter((skin) => !onlyMissing || !skin.imageUrl)
+    .sort(
     (a, b) => skinTierRank(a.tier) - skinTierRank(b.tier) || a.name.localeCompare(b.name)
   );
 
@@ -51,7 +62,17 @@ export default async function AdminHeroSkinsPage({ params }: { params: Promise<{
       </div>
 
       <div>
-        <h2 className="mb-3 font-semibold text-ink">สกินทั้งหมด ({skins.length})</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold text-ink">
+            สกิน ({skins.length}) · <span className={missingCount > 0 ? "text-gold" : "text-ink-muted"}>ยังไม่มีรูป {missingCount}</span>
+          </h2>
+          <Link
+            href={onlyMissing ? `/admin/skins/${hero.id}` : `/admin/skins/${hero.id}?missing=1`}
+            className="text-sm text-gold hover:underline"
+          >
+            {onlyMissing ? "แสดงทั้งหมด" : "แสดงเฉพาะที่ยังไม่มีรูป"}
+          </Link>
+        </div>
         <div className="space-y-2">
           {skins.map((skin) => (
             <SkinRow

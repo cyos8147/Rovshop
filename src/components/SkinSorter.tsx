@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { chargeDownloadAction } from "@/lib/actions/membership";
+import { ImageCropper } from "@/components/ImageCropper";
+import { loadUserImages, removeUserImage, saveUserImage } from "@/lib/user-images";
 import {
   BANNER_THEMES,
   renderBanner,
@@ -95,6 +97,32 @@ export function SkinSorter({
     return map;
   }, [heroes]);
 
+  // Pictures the visitor added for skins the catalog has no art for. They
+  // stay in this browser (IndexedDB) and are only used for their own banner.
+  const [userImages, setUserImages] = useState<Record<string, string>>({});
+  const [cropTarget, setCropTarget] = useState<{ skinId: string; file: File } | null>(null);
+  const [imageNotice, setImageNotice] = useState<string | null>(null);
+  const chooserRef = useRef<HTMLInputElement>(null);
+  const pendingSkinId = useRef<string | null>(null);
+
+  useEffect(() => {
+    loadUserImages().then(setUserImages);
+  }, []);
+
+  const addUserImage = (skinId: string) => {
+    pendingSkinId.current = skinId;
+    chooserRef.current?.click();
+  };
+
+  const removeImage = (skinId: string) => {
+    setUserImages((prev) => {
+      const next = { ...prev };
+      delete next[skinId];
+      return next;
+    });
+    void removeUserImage(skinId);
+  };
+
   const [tab, setTab] = useState<Tab>("pick");
   const [selected, setSelected] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>("tier");
@@ -155,6 +183,12 @@ export function SkinSorter({
     }
     return list;
   }, [selected, skinById, sortMode]);
+
+  // What the banner draws: catalog art first, else the visitor's own picture.
+  const orderedForBanner = useMemo(
+    () => ordered.map((skin) => (skin.imageUrl ? skin : { ...skin, imageUrl: userImages[skin.id] ?? null })),
+    [ordered, userImages]
+  );
 
   const toggle = useCallback((id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -264,6 +298,10 @@ export function SkinSorter({
                 เฉพาะที่เลือก
               </label>
             </div>
+            <p className="text-xs text-ink-muted">
+              สกินที่ยังไม่มีรูป: กดไอคอนกล้องที่มุมช่องเพื่อใส่รูปของคุณเอง (ครอปได้) รูปเก็บในเครื่องคุณเท่านั้น ไม่ถูกอัปโหลดขึ้นเว็บ
+            </p>
+            {imageNotice ? <p className="text-xs text-gold">{imageNotice}</p> : null}
           </div>
 
           {filteredHeroes.map((hero) => {
@@ -294,9 +332,13 @@ export function SkinSorter({
                       name={skin.name}
                       heroName={hero.name}
                       tier={skin.tier}
-                      imageUrl={skin.imageUrl}
+                      imageUrl={skin.imageUrl ?? userImages[skin.id] ?? null}
+                      canAddImage={!skin.imageUrl}
+                      hasUserImage={!skin.imageUrl && Boolean(userImages[skin.id])}
                       active={selectedSet.has(skin.id)}
                       onClick={() => toggle(skin.id)}
+                      onAddImage={() => addUserImage(skin.id)}
+                      onRemoveImage={() => removeImage(skin.id)}
                     />
                   ))}
                 </div>
@@ -403,9 +445,39 @@ export function SkinSorter({
           setTheme={setTheme}
           showNames={showNames}
           setShowNames={setShowNames}
-          skins={ordered}
+          skins={orderedForBanner}
           watermark={watermark}
           wallet={wallet}
+        />
+      ) : null}
+
+      {/* Picker + cropper for the visitor's own skin pictures */}
+      <input
+        ref={chooserRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        data-testid="user-image-chooser"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          const skinId = pendingSkinId.current;
+          if (file && skinId) setCropTarget({ skinId, file });
+        }}
+      />
+      {cropTarget ? (
+        <ImageCropper
+          file={cropTarget.file}
+          title={`ครอปรูป: ${skinById.get(cropTarget.skinId)?.name ?? "สกิน"}`}
+          onCancel={() => setCropTarget(null)}
+          onDone={({ dataUrl }) => {
+            const skinId = cropTarget.skinId;
+            setUserImages((prev) => ({ ...prev, [skinId]: dataUrl }));
+            setCropTarget(null);
+            saveUserImage(skinId, dataUrl).then((ok) =>
+              setImageNotice(ok ? null : "บันทึกรูปไว้ในเครื่องไม่ได้ (โหมดส่วนตัว?) รูปจะอยู่แค่ระหว่างที่เปิดหน้านี้")
+            );
+          }}
         />
       ) : null}
 
@@ -433,58 +505,88 @@ export function SkinSorter({
   );
 }
 
+function CameraIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  );
+}
+
 function SkinTile({
   name,
   heroName,
   tier,
   imageUrl,
+  canAddImage,
+  hasUserImage,
   active,
   onClick,
+  onAddImage,
+  onRemoveImage,
 }: {
   name: string;
   heroName: string;
   tier: string;
   imageUrl: string | null;
+  canAddImage: boolean;
+  hasUserImage: boolean;
   active: boolean;
   onClick: () => void;
+  onAddImage: () => void;
+  onRemoveImage: () => void;
 }) {
   const color = tierColor(tier);
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      title={`${heroName} — ${name}`}
-      className={`group relative aspect-[4/5] overflow-hidden rounded-xl border-2 text-left transition ${
-        active ? "scale-[0.97]" : "opacity-80 hover:opacity-100"
-      }`}
-      style={{ borderColor: active ? color : "transparent" }}
-    >
-      {imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={imageUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-violet/40 to-bg-soft text-3xl font-bold text-white/20">
-          {heroName.slice(0, 1)}
+    <div className={`relative aspect-[4/5] transition ${active ? "scale-[0.97]" : ""}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-pressed={active}
+        title={`${heroName} — ${name}`}
+        className={`group absolute inset-0 overflow-hidden rounded-xl border-2 text-left transition ${
+          active ? "" : "opacity-80 hover:opacity-100"
+        }`}
+        style={{ borderColor: active ? color : "transparent" }}
+      >
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-violet/40 to-bg-soft text-3xl font-bold text-white/20">
+            {heroName.slice(0, 1)}
+          </div>
+        )}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1 pt-6">
+          <p className="truncate text-[11px] font-medium leading-tight text-white">{name}</p>
         </div>
-      )}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1 pt-6">
-        <p className="truncate text-[11px] font-medium leading-tight text-white">{name}</p>
-      </div>
-      {tier !== "NORMAL" ? (
-        <span
-          className="absolute left-1 top-1 rounded-full px-1.5 text-[10px] font-bold leading-4 text-bg"
-          style={{ backgroundColor: color }}
+        {tier !== "NORMAL" ? (
+          <span
+            className="absolute left-1 top-1 rounded-full px-1.5 text-[10px] font-bold leading-4 text-bg"
+            style={{ backgroundColor: color }}
+          >
+            {SKIN_TIER_LABELS[tier as SkinTier] ?? tier}
+          </span>
+        ) : null}
+        {active ? (
+          <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold text-xs font-bold text-bg">
+            ✓
+          </span>
+        ) : null}
+      </button>
+      {canAddImage ? (
+        <button
+          type="button"
+          onClick={hasUserImage ? onRemoveImage : onAddImage}
+          aria-label={hasUserImage ? `ลบรูปที่เพิ่มเองของ ${name}` : `เพิ่มรูปให้ ${name}`}
+          title={hasUserImage ? "ลบรูปที่คุณเพิ่ม" : "เพิ่มรูปของคุณเอง"}
+          className="absolute bottom-6 right-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-ink shadow ring-1 ring-white/30 transition hover:bg-black/90 hover:text-gold"
         >
-          {SKIN_TIER_LABELS[tier as SkinTier] ?? tier}
-        </span>
+          {hasUserImage ? <span aria-hidden>✕</span> : <CameraIcon />}
+        </button>
       ) : null}
-      {active ? (
-        <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold text-xs font-bold text-bg">
-          ✓
-        </span>
-      ) : null}
-    </button>
+    </div>
   );
 }
 
@@ -522,7 +624,15 @@ function BannerStep({
   // A banner that was already paid for can be downloaded/shared again for
   // free, as long as nothing on it changed.
   const bannerKey = useMemo(
-    () => JSON.stringify({ ids: skins.map((s) => s.id), info, theme, showNames, noWatermark }),
+    () =>
+      JSON.stringify({
+        // a picture added/changed by the visitor makes it a different banner
+        ids: skins.map((s) => (s.imageUrl?.startsWith("data:") ? `${s.id}:${s.imageUrl.length}` : s.id)),
+        info,
+        theme,
+        showNames,
+        noWatermark,
+      }),
     [skins, info, theme, showNames, noWatermark]
   );
   useEffect(() => {

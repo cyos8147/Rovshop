@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import { CroppedImageInput } from "@/components/CroppedImageInput";
 import type { SkinFormState } from "@/lib/actions/skins";
 import {
   HERO_ROLES,
@@ -112,8 +113,8 @@ export function AddSkinForm({ action }: { action: FormAction }) {
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-sm text-ink-muted">รูปสกิน (แนะนำภาพแนวตั้งหรือสี่เหลี่ยม)</label>
-        <input type="file" name="image" accept="image/jpeg,image/png,image/webp" className="input" />
+        <label className="mb-1 block text-sm text-ink-muted">รูปสกิน (เลือกรูปหรือภาพแคปหน้าจอ แล้วลาก/ซูมครอปเฉพาะช่องสกิน)</label>
+        <CroppedImageInput label="เลือกรูปสกิน" />
       </div>
       <button type="submit" disabled={pending} className="btn-primary">
         {pending ? "กำลังเพิ่ม..." : "เพิ่มสกิน"}
@@ -150,6 +151,35 @@ export function BulkSkinForm({ action }: { action: FormAction }) {
   );
 }
 
+export function ImportCatalogForm({ action }: { action: FormAction }) {
+  const [state, formAction, pending] = useActionState(action, initialState);
+  const ref = useResetOnSuccess(state);
+
+  return (
+    <form ref={ref} action={formAction} className="card space-y-4 p-5">
+      <div>
+        <h2 className="font-semibold text-ink">นำเข้าฮีโร่และสกินทั้งชุดจากรายชื่อ</h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          วางรายชื่อบรรทัดละ 1 สกิน รูปแบบ{" "}
+          <code className="text-gold">ฮีโร่ | สกิน | ระดับ | ตำแหน่ง</code> — ระดับ (SSS, SS, S+, S, A, Limited, ทั่วไป) และตำแหน่ง
+          (แทงค์ ไฟเตอร์ แอสซาซิน เมจ แครี่ ซัพพอร์ต) ไม่ใส่ก็ได้ ฮีโร่ที่ยังไม่มีจะถูกสร้างให้เอง ชื่อที่มีอยู่แล้วจะถูกข้าม ครั้งละไม่เกิน 600 บรรทัด
+        </p>
+      </div>
+      <FormMessage state={state} />
+      <textarea
+        name="lines"
+        rows={8}
+        required
+        placeholder={"Airi | Shadowblade | SS | แอสซาซิน\nAiri | Kimono | A\nFlorentino | Dimension Breaker | SSS | ไฟเตอร์"}
+        className="input font-mono"
+      />
+      <button type="submit" disabled={pending} className="btn-primary">
+        {pending ? "กำลังนำเข้า..." : "นำเข้า"}
+      </button>
+    </form>
+  );
+}
+
 export function SkinRow({
   skin,
   updateAction,
@@ -180,13 +210,7 @@ export function SkinRow({
         <div className="w-28">
           <TierSelect defaultValue={skin.tier} />
         </div>
-        <input
-          type="file"
-          name="image"
-          accept="image/jpeg,image/png,image/webp"
-          aria-label="เปลี่ยนรูปสกิน"
-          className="w-full text-xs text-ink-muted sm:w-48"
-        />
+        <CroppedImageInput label={skin.imageUrl ? "เปลี่ยนรูป" : "ใส่รูป"} compact />
         <button type="submit" disabled={pending} className="btn-secondary px-3 py-2 text-sm">
           {pending ? "..." : "บันทึก"}
         </button>

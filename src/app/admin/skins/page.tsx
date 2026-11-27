@@ -1,18 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { createHeroAction } from "@/lib/actions/skins";
-import { HeroForm } from "@/components/SkinAdmin";
+import { createHeroAction, importCatalogAction } from "@/lib/actions/skins";
+import { HeroForm, ImportCatalogForm } from "@/components/SkinAdmin";
 import { HERO_ROLE_LABELS, type HeroRole } from "@/lib/types";
 
 export const metadata: Metadata = { title: "คลังสกิน" };
 
 export default async function AdminSkinsPage() {
-  const heroes = await prisma.hero.findMany({
-    orderBy: { name: "asc" },
-    include: { _count: { select: { skins: true } } },
-  });
+  const [heroes, missingByHero] = await Promise.all([
+    prisma.hero.findMany({
+      orderBy: { name: "asc" },
+      include: { _count: { select: { skins: true } } },
+    }),
+    prisma.skin.groupBy({ by: ["heroId"], where: { imageUrl: null }, _count: { _all: true } }),
+  ]);
+  const missing = new Map(missingByHero.map((row) => [row.heroId, row._count._all]));
   const totalSkins = heroes.reduce((sum, hero) => sum + hero._count.skins, 0);
+  const totalMissing = [...missing.values()].reduce((sum, n) => sum + n, 0);
 
   return (
     <div className="space-y-6">
@@ -20,7 +25,8 @@ export default async function AdminSkinsPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink">คลังสกิน</h1>
           <p className="mt-1 text-sm text-ink-muted">
-            {heroes.length} ฮีโร่ · {totalSkins} สกิน — ข้อมูลนี้ใช้ในหน้า{" "}
+            {heroes.length} ฮีโร่ · {totalSkins} สกิน ·{" "}
+            <span className={totalMissing > 0 ? "text-gold" : ""}>ยังไม่มีรูป {totalMissing}</span> — ข้อมูลนี้ใช้ในหน้า{" "}
             <Link href="/sort" className="text-gold hover:underline">
               เรียงสกินทำป้าย
             </Link>
@@ -28,8 +34,10 @@ export default async function AdminSkinsPage() {
         </div>
       </div>
 
+      <ImportCatalogForm action={importCatalogAction} />
+
       <div>
-        <h2 className="mb-3 font-semibold text-ink">เพิ่มฮีโร่ใหม่</h2>
+        <h2 className="mb-3 font-semibold text-ink">เพิ่มฮีโร่ใหม่ทีละตัว</h2>
         <HeroForm action={createHeroAction} submitLabel="เพิ่มฮีโร่" />
       </div>
 
@@ -50,6 +58,7 @@ export default async function AdminSkinsPage() {
               <p className="truncate font-medium text-ink">{hero.name}</p>
               <p className="text-xs text-ink-muted">
                 {HERO_ROLE_LABELS[hero.role as HeroRole] ?? hero.role} · {hero._count.skins} สกิน
+                {missing.get(hero.id) ? <span className="text-gold"> · ขาดรูป {missing.get(hero.id)}</span> : null}
               </p>
             </div>
             <span className="text-sm text-ink-muted">จัดการ →</span>

@@ -145,7 +145,7 @@ export default async function HomePage() {
           ].map((item, i) => (
             <div
               key={i}
-              className="border-b border-violet-soft/20 p-6 last:border-b-0 sm:[&:nth-child(odd)]:border-r sm:[&:nth-last-child(-n+2)]:border-b-0"
+              className="border-b border-border p-6 last:border-b-0 sm:[&:nth-child(odd)]:border-r sm:[&:nth-last-child(-n+2)]:border-b-0"
             >
               <p className={`text-2xl font-bold ${item.gold ? "text-gold" : "text-ink"}`}>{item.price}</p>
               <p className="mt-1 text-sm text-ink-muted">{item.label}</p>

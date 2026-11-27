@@ -107,7 +107,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                 href={`/account?amount=${p}`}
                 scroll={false}
                 className={`rounded-xl border py-2.5 text-center font-semibold transition ${
-                  p === amount ? "border-gold bg-gold/15 text-gold" : "border-violet-soft/30 text-ink hover:border-gold"
+                  p === amount ? "border-gold bg-gold/15 text-gold" : "border-border text-ink hover:border-gold"
                 }`}
               >
                 ฿{p}

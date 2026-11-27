@@ -11,18 +11,6 @@ import {
   type BannerWatermark,
 } from "@/lib/banner";
 import {
-  BoltIcon,
-  CheckCircleIcon,
-  GridIcon,
-  LayersIcon,
-  SearchIcon,
-  ShareIcon,
-  ShieldIcon,
-  StarIcon,
-  SwordIcon,
-  XIcon,
-} from "@/components/icons";
-import {
   HERO_ROLES,
   HERO_ROLE_LABELS,
   RANK_TIERS,
@@ -216,28 +204,24 @@ export function SkinSorter({
   return (
     <div className="pb-28">
       {/* Tabs */}
-      <div className="sticky top-[56px] z-30 -mx-4 bg-gradient-to-b from-[#261d50] from-60% to-transparent px-4 pb-3 pt-2">
-        <div className="grid grid-cols-3 gap-1 rounded-full border border-violet-soft/30 bg-[#2d2361]/95 p-1.5 text-sm shadow-panel backdrop-blur-md">
+      <div className="sticky top-[57px] z-30 -mx-4 border-b border-border bg-bg/95 px-4 py-2 backdrop-blur">
+        <div className="grid grid-cols-3 gap-1 rounded-xl bg-bg-soft p-1 text-sm">
           {(
             [
-              ["pick", "1. เลือกสกิน", StarIcon],
-              ["order", "2. จัดเรียง", LayersIcon],
-              ["banner", "3. ทำป้าย", ShareIcon],
-            ] as const
-          ).map(([key, label, TabIcon]) => (
+              ["pick", "1. เลือกสกิน"],
+              ["order", "2. จัดเรียง"],
+              ["banner", "3. ทำป้าย"],
+            ] as [Tab, string][]
+          ).map(([key, label]) => (
             <button
               key={key}
               type="button"
               onClick={() => setTab(key)}
-              aria-current={tab === key ? "step" : undefined}
-              className={`flex items-center justify-center gap-1.5 rounded-full px-2 py-2.5 font-semibold transition ${
-                tab === key
-                  ? "bg-gradient-to-b from-gold-soft to-gold text-[#2a1b05] shadow-goldGlow"
-                  : "text-ink hover:bg-white/10"
+              className={`rounded-lg px-2 py-2 font-medium transition ${
+                tab === key ? "bg-gold text-bg" : "text-ink-muted hover:text-ink"
               }`}
             >
-              <TabIcon className={`shrink-0 text-base ${tab === key ? "" : "text-violet-soft"}`} />
-              <span className="truncate">{label}</span>
+              {label}
             </button>
           ))}
         </div>
@@ -245,56 +229,37 @@ export function SkinSorter({
 
       {tab === "pick" ? (
         <div className="mt-4 space-y-4">
-          <div className="card space-y-3 p-4">
-            <div className="relative">
-              <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-lg text-ink-muted" />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={`ค้นหาฮีโร่หรือสกิน (${totalSkins.toLocaleString("th-TH")} สกิน)`}
-                className="input pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  aria-label="ล้างคำค้นหา"
-                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-violet-soft/40 text-ink-muted hover:text-ink"
-                >
-                  <XIcon />
-                </button>
-              ) : null}
-            </div>
+          <div className="card space-y-3 p-3">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={`ค้นหาฮีโร่หรือสกิน (${totalSkins.toLocaleString("th-TH")} สกิน)`}
+              className="input"
+            />
             <div className="flex flex-wrap gap-2">
-              <div className="relative">
-                <ShieldIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-violet-soft" />
-                <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input w-auto pl-9">
+              <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input w-auto">
                 <option value="">ทุกตำแหน่ง</option>
                 {HERO_ROLES.map((role) => (
                   <option key={role} value={role}>
                     {HERO_ROLE_LABELS[role]}
                   </option>
                 ))}
-                </select>
-              </div>
-              <div className="relative">
-                <GridIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-violet-soft" />
-                <select value={tierFilter} onChange={(e) => setTierFilter(e.target.value)} className="input w-auto pl-9">
+              </select>
+              <select value={tierFilter} onChange={(e) => setTierFilter(e.target.value)} className="input w-auto">
                 <option value="">ทุกระดับ</option>
                 {SKIN_TIERS.map((tier) => (
                   <option key={tier} value={tier}>
                     {SKIN_TIER_LABELS[tier]}
                   </option>
                 ))}
-                </select>
-              </div>
-              <label className="flex cursor-pointer items-center gap-2 px-1 text-sm text-ink">
+              </select>
+              <label className="flex items-center gap-2 rounded-xl border border-border px-3 text-sm text-ink-muted">
                 <input
                   type="checkbox"
                   checked={onlySelected}
                   onChange={(e) => setOnlySelected(e.target.checked)}
-                  className="h-5 w-5"
+                  className="accent-[#e8b64a]"
                 />
                 เฉพาะที่เลือก
               </label>
@@ -307,24 +272,22 @@ export function SkinSorter({
             const allOn = picked === fullHero.skins.length;
             return (
               <section key={hero.id}>
-                <div className="mb-2.5 flex items-center justify-between gap-2">
-                  <h2 className="flex min-w-0 items-baseline gap-2">
-                    <SwordIcon className="shrink-0 self-center text-lg text-violet-soft" />
-                    <span className="truncate text-lg font-bold italic text-ink">{hero.name}</span>
-                    <span className="shrink-0 text-sm text-ink-muted">
-                      {HERO_ROLE_LABELS[hero.role as HeroRole] ?? hero.role} : {picked}/{fullHero.skins.length}
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h2 className="font-semibold text-ink">
+                    {hero.name}{" "}
+                    <span className="text-xs font-normal text-ink-muted">
+                      {HERO_ROLE_LABELS[hero.role as HeroRole] ?? hero.role} · {picked}/{fullHero.skins.length}
                     </span>
                   </h2>
                   <button
                     type="button"
                     onClick={() => toggleHero(fullHero)}
-                    className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-medium text-gold transition hover:bg-white/10"
+                    className="rounded-lg px-2 py-1 text-xs text-gold hover:bg-bg-soft"
                   >
                     {allOn ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
-                    <CheckCircleIcon className="text-base" />
                   </button>
                 </div>
-                <div className="grid grid-cols-3 gap-2.5 min-[480px]:grid-cols-4 sm:grid-cols-6 lg:grid-cols-8">
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
                   {hero.skins.map((skin) => (
                     <SkinTile
                       key={skin.id}
@@ -447,10 +410,10 @@ export function SkinSorter({
       ) : null}
 
       {/* Bottom bar */}
-      <div className="fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="card mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-2xl bg-[#2a2058]/85 px-4 py-3">
-          <p className="text-sm text-ink">
-            เลือกแล้ว <span className="mx-0.5 text-2xl font-black text-gold">{ordered.length}</span> สกิน
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+          <p className="text-sm text-ink-muted">
+            เลือกแล้ว <span className="text-lg font-bold text-gold">{ordered.length}</span> สกิน
           </p>
           {tab !== "banner" ? (
             <button
@@ -459,9 +422,8 @@ export function SkinSorter({
                 setTab(tab === "pick" ? "order" : "banner");
                 window.scrollTo({ top: 0 });
               }}
-              className="btn-primary flex items-center gap-2 rounded-full px-5"
+              className="btn-primary"
             >
-              <BoltIcon />
               {tab === "pick" ? "ถัดไป: จัดเรียง →" : "ถัดไป: ทำป้าย →"}
             </button>
           ) : null}
@@ -493,36 +455,32 @@ function SkinTile({
       onClick={onClick}
       aria-pressed={active}
       title={`${heroName} — ${name}`}
-      className={`group relative aspect-[4/5] overflow-hidden rounded-2xl border-2 text-left transition duration-150 ${
-        active ? "-translate-y-0.5" : "hover:-translate-y-0.5"
+      className={`group relative aspect-[4/5] overflow-hidden rounded-xl border-2 text-left transition ${
+        active ? "scale-[0.97]" : "opacity-80 hover:opacity-100"
       }`}
-      style={{
-        borderColor: active ? color : `${color}66`,
-        boxShadow: active ? `0 0 0 2px ${color}55, 0 8px 24px ${color}55` : "0 4px 14px rgba(10,6,30,0.35)",
-      }}
+      style={{ borderColor: active ? color : "transparent" }}
     >
       {imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imageUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-violet/60 via-[#3a2d78] to-[#241b4d] text-4xl font-black text-white/25">
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-violet/40 to-bg-soft text-3xl font-bold text-white/20">
           {heroName.slice(0, 1)}
         </div>
       )}
-      {!active ? <div className="absolute inset-0 bg-[#1a1338]/25 transition group-hover:bg-transparent" /> : null}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#120c28]/95 via-[#120c28]/60 to-transparent px-2 pb-1.5 pt-8">
-        <p className="truncate text-xs font-semibold leading-tight text-white">{name}</p>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1.5 pb-1 pt-6">
+        <p className="truncate text-[11px] font-medium leading-tight text-white">{name}</p>
       </div>
       {tier !== "NORMAL" ? (
         <span
-          className="absolute left-0 top-0 rounded-br-xl px-2 py-0.5 text-[11px] font-black leading-4 text-[#1a1030]"
+          className="absolute left-1 top-1 rounded-full px-1.5 text-[10px] font-bold leading-4 text-bg"
           style={{ backgroundColor: color }}
         >
           {SKIN_TIER_LABELS[tier as SkinTier] ?? tier}
         </span>
       ) : null}
       {active ? (
-        <span className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-b from-gold-soft to-gold text-xs font-black text-[#2a1b05] shadow-goldGlow">
+        <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold text-xs font-bold text-bg">
           ✓
         </span>
       ) : null}

@@ -7,9 +7,21 @@ import { HERO_ROLE_LABELS, type HeroRole } from "@/lib/types";
 
 export const metadata: Metadata = { title: "คลังสกิน" };
 
-export default async function AdminSkinsPage() {
+export default async function AdminSkinsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q } = await searchParams;
+  const query = typeof q === "string" ? q.trim().slice(0, 60) : "";
+
   const [heroes, missingByHero] = await Promise.all([
     prisma.hero.findMany({
+      // Matches the hero's name, or any of its skins' names.
+      where: query
+        ? {
+            OR: [
+              { name: { contains: query, mode: "insensitive" } },
+              { skins: { some: { name: { contains: query, mode: "insensitive" } } } },
+            ],
+          }
+        : undefined,
       orderBy: { name: "asc" },
       include: { _count: { select: { skins: true } } },
     }),
@@ -33,6 +45,30 @@ export default async function AdminSkinsPage() {
           </p>
         </div>
       </div>
+
+      <form className="flex gap-2" role="search">
+        <input
+          type="search"
+          name="q"
+          defaultValue={query}
+          placeholder="ค้นหาฮีโร่หรือสกิน เช่น Volkath"
+          className="input"
+          aria-label="ค้นหาฮีโร่หรือสกิน"
+        />
+        <button type="submit" className="btn-secondary whitespace-nowrap">
+          ค้นหา
+        </button>
+        {query ? (
+          <Link href="/admin/skins" className="btn-secondary whitespace-nowrap">
+            ล้าง
+          </Link>
+        ) : null}
+      </form>
+      {query ? (
+        <p className="text-sm text-ink-muted">
+          พบ {heroes.length} ฮีโร่ สำหรับ &quot;{query}&quot; — กดที่ฮีโร่เพื่อใส่รูปสกิน
+        </p>
+      ) : null}
 
       <ImportCatalogForm action={importCatalogAction} />
 
@@ -65,7 +101,9 @@ export default async function AdminSkinsPage() {
           </Link>
         ))}
       </div>
-      {heroes.length === 0 ? <p className="py-6 text-center text-ink-muted">ยังไม่มีฮีโร่ในระบบ</p> : null}
+      {heroes.length === 0 ? (
+        <p className="py-6 text-center text-ink-muted">{query ? "ไม่พบฮีโร่หรือสกินที่ค้นหา" : "ยังไม่มีฮีโร่ในระบบ"}</p>
+      ) : null}
     </div>
   );
 }

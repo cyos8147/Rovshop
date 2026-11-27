@@ -100,7 +100,7 @@ npm run dev
 
 1. ไปที่โปรเจกต์ Supabase ของคุณ → **Settings → Database → Connection string**
    - คัดลอกแบบ **Transaction** (มี `pgbouncer=true`, พอร์ต 6543) ไว้ใช้เป็น `DATABASE_URL`
-   - คัดลอกแบบ **Session/Direct** (พอร์ต 5432) ไว้ใช้เป็น `DIRECT_URL`
+   - คัดลอกแบบ **Session pooler** (พอร์ต 5432) ไว้ใช้เป็น `DIRECT_URL` — ไม่ใช่ Direct connection (IPv6 ใช้กับ Render ไม่ได้)
 2. ไปที่ **Settings → API** → คัดลอก **Project URL** (ใช้เป็น `NEXT_PUBLIC_SUPABASE_URL`) และ **service_role key** (ใช้เป็น `SUPABASE_SERVICE_ROLE_KEY` — คีย์นี้ลับ ห้ามเผยแพร่)
 3. ไปที่ **Storage** → สร้าง bucket ใหม่ชื่อ `product-images` → เปิด **Public bucket** (เพื่อให้รูปแสดงบนเว็บได้โดยตรง)
 4. สร้างอีก bucket ชื่อ `payment-slips` → **ปิด** Public bucket (สลิปมีชื่อ/เลขบัญชีลูกค้า แอดมินดูผ่านลิงก์ชั่วคราวเท่านั้น)
@@ -118,12 +118,13 @@ npm run dev
    | --- | --- |
    | Language / Runtime | **Node** |
    | Region | **Singapore** (ใกล้ไทยที่สุด — ถ้ามีให้เลือก) |
-   | Build Command | `npm ci --include=dev && npm run build` |
+   | Build Command | `npm ci --include=dev && npm run build && npm run admin:ensure` |
    | Start Command | `npm run start` |
    | Instance Type | **Free** (หรือ Starter ถ้าไม่อยากให้หลับ) |
    | Health Check Path (ใน Advanced) | `/api/health` |
 
    > `npm run build` จะรัน `prisma migrate deploy` (สร้าง/อัปเดตตารางในฐานข้อมูลให้เอง) แล้วค่อย build — ทุกครั้งที่ deploy
+   > `npm run admin:ensure` สร้างบัญชีแอดมินจาก `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` ถ้ายังไม่มี (มีแล้วจะไม่แตะ ไม่ทับรหัสที่เปลี่ยนภายหลัง และไม่ใส่ข้อมูลตัวอย่าง) — แผน Free ของ Render ไม่มี Shell ให้รันคำสั่งเอง จึงใช้วิธีนี้
    > `--include=dev` ต้องมี เพราะเครื่องมือ build (Prisma, Tailwind, TypeScript) อยู่ใน devDependencies
 
 3. ใส่ **Environment Variables** ตามนี้ (เอาค่าจริงจาก Supabase ในข้อ 1) แล้วกด **Create Web Service**:
@@ -132,11 +133,11 @@ npm run dev
    | --- | --- |
    | `NODE_VERSION` | `22` |
    | `DATABASE_URL` | connection string แบบ Transaction จาก Supabase |
-   | `DIRECT_URL` | connection string แบบ Direct จาก Supabase |
+   | `DIRECT_URL` | connection string แบบ **Session pooler** (พอร์ต 5432) จาก Supabase — **อย่าใช้แบบ Direct connection** เพราะเป็น IPv6 ซึ่ง Render เชื่อมไม่ได้ |
    | `NEXTAUTH_SECRET` | สุ่มค่าใหม่ด้วย `openssl rand -base64 32` |
    | `NEXTAUTH_URL` | ลิงก์เว็บจริง เช่น `https://ชื่อเว็บ.onrender.com` (ดูได้ที่หัวหน้าเว็บบน Render หลังสร้าง แล้วกลับมาแก้ให้ตรง) |
    | `SEED_ADMIN_EMAIL` | อีเมลแอดมินที่ต้องการ |
-   | `SEED_ADMIN_PASSWORD` | รหัสผ่านแอดมินที่ต้องการ (ตั้งให้รัดกุม) |
+   | `SEED_ADMIN_PASSWORD` | รหัสผ่านแอดมิน อย่างน้อย 10 ตัว ห้ามใช้ `Admin1234!` (ระบบจะไม่ยอมสร้าง) |
    | `NEXT_PUBLIC_SUPABASE_URL` | Project URL จาก Supabase |
    | `SUPABASE_SERVICE_ROLE_KEY` | service_role key จาก Supabase |
    | `SUPABASE_STORAGE_BUCKET` | `product-images` |
@@ -151,15 +152,13 @@ npm run dev
    - `/api/health` แตะฐานข้อมูลด้วย จึงช่วยให้ Supabase แผนฟรีไม่ถูกพักเพราะไม่มีการใช้งานไปพร้อมกัน
    - Render อาจรีสตาร์ทบริการ Free ได้ทุกเมื่อ และไม่แนะนำแผน Free สำหรับใช้งานจริงระยะยาว — พอมีลูกค้าจ่ายเงินแล้ว อัปเกรดเป็น Starter (ประมาณ 7 ดอลลาร์/เดือน) แล้วเลิกใช้บอทได้
 
-### 3. ใส่ข้อมูลเริ่มต้น (ทำครั้งเดียว)
+### 3. เข้าใช้งานครั้งแรก
 
-หลัง deploy รอบแรก ให้รัน seed หนึ่งครั้งเพื่อสร้างบัญชีแอดมิน (และข้อมูลตัวอย่างถ้าต้องการ) จากเครื่องตัวเอง โดยตั้ง `DATABASE_URL`/`DIRECT_URL` ในไฟล์ `.env` ในเครื่องให้ชี้ไปที่ Supabase ตัวเดียวกับที่ deploy แล้วรัน:
+บัญชีแอดมินถูกสร้างให้อัตโนมัติตอน deploy (จาก `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`) — ดูข้อความ `ensure-admin: created admin ...` ใน Logs ของ deploy
 
-```bash
-npm run prisma:seed
-```
+เข้า `https://<โดเมนของคุณ>/login` ด้วยบัญชีแอดมิน แล้วไปที่ **ตั้งค่าร้าน** ใส่ลิงก์ Facebook และ**เลขพร้อมเพย์** (ถ้ายังไม่ใส่ ลูกค้าจะเติมคอยน์ไม่ได้) จากนั้นเพิ่มฮีโร่และสกินที่ **คลังสกิน**
 
-เสร็จแล้วเข้า `https://<โดเมนของคุณ>/login` ด้วยบัญชีแอดมินที่ตั้งไว้ ไปที่หน้า **ตั้งค่าร้าน** ใส่ลิงก์ Facebook และ**เลขพร้อมเพย์** (ถ้ายังไม่ใส่ ลูกค้าจะชำระเงินไม่ได้) แล้วเพิ่มสกินจริงที่ **คลังสกิน**
+> ถ้าอยากได้ข้อมูลตัวอย่าง (ไอดี/ฮีโร่/สกินตัวอย่าง) ให้รัน `npm run prisma:seed` จากเครื่องตัวเองโดยตั้ง `DATABASE_URL`/`DIRECT_URL` ชี้ไปที่ Supabase — ไม่จำเป็นสำหรับเว็บจริง
 
 ## คำสั่งที่ใช้บ่อย
 
@@ -170,6 +169,7 @@ npm run prisma:seed
 | `npm run start` | รันเซิร์ฟเวอร์โปรดักชัน (ต้อง build ก่อน) |
 | `npm run prisma:migrate` | สร้าง/อัปเดต migration ระหว่างพัฒนา |
 | `npm run prisma:seed` | ใส่ข้อมูลตัวอย่าง (ไอดี, แอดมิน, รีวิว) |
+| `npm run admin:ensure` | สร้างแอดมินจาก env ถ้ายังไม่มี (ใช้ตอน deploy) |
 | `npm run db:reset` | ล้างฐานข้อมูลและ seed ใหม่ทั้งหมด |
 
 ## โครงสร้างโปรเจกต์

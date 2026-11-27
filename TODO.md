@@ -15,6 +15,6 @@
 - [ ] ตั้ง cron-job.org ยิง `/api/health` ทุก 10 นาที กันเว็บหลับ — มีบริการ Free ได้แค่ตัวเดียวใน workspace
 - [ ] เมื่อมีรายได้: อัปเกรด Render เป็น Starter แล้วเลิกใช้บอท
 - [ ] Supabase: bucket `product-images` (public) และ `payment-slips` (ไม่ public)
-- [ ] ตั้ง `SEED_ADMIN_PASSWORD` ใหม่ก่อนรัน seed
+- [ ] ตั้ง `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` (≥10 ตัว) ใน Render — แอดมินถูกสร้างตอน deploy
 - [ ] เข้าแอดมิน: ใส่เลขพร้อมเพย์ ตรวจราคา ลิงก์ Facebook
 - [ ] ลบ/แก้ฮีโร่และสกินตัวอย่างจาก seed ให้เป็นข้อมูลจริง

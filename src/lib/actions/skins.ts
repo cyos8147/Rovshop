@@ -23,12 +23,14 @@ export type SkinFormState = {
 
 const heroSchema = z.object({
   name: z.string().trim().min(1, "กรุณาใส่ชื่อฮีโร่").max(60),
-  role: z.enum(HERO_ROLES),
+  // No longer asked for in the admin forms; kept optional for imports.
+  role: z.enum(HERO_ROLES).optional(),
 });
 
 const skinSchema = z.object({
   name: z.string().trim().min(1, "กรุณาใส่ชื่อสกิน").max(80),
-  tier: z.enum(SKIN_TIERS),
+  // Tiers (SSS, SS ...) are optional now; new skins are "NORMAL".
+  tier: z.enum(SKIN_TIERS).optional(),
 });
 
 function isUniqueViolation(error: unknown) {
@@ -54,7 +56,7 @@ function revalidateSkinPages(heroId?: string) {
 export async function createHeroAction(_prev: SkinFormState, formData: FormData): Promise<SkinFormState> {
   await requireAdmin();
 
-  const parsed = heroSchema.safeParse({ name: formData.get("name"), role: formData.get("role") });
+  const parsed = heroSchema.safeParse({ name: formData.get("name"), role: formData.get("role") ?? undefined });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง" };
 
   let imageUrl: string | null;
@@ -84,7 +86,7 @@ export async function updateHeroAction(
 ): Promise<SkinFormState> {
   await requireAdmin();
 
-  const parsed = heroSchema.safeParse({ name: formData.get("name"), role: formData.get("role") });
+  const parsed = heroSchema.safeParse({ name: formData.get("name"), role: formData.get("role") ?? undefined });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง" };
 
   let imageUrl: string | null;
@@ -125,18 +127,13 @@ export async function createSkinAction(
 ): Promise<SkinFormState> {
   await requireAdmin();
 
-  const parsed = skinSchema.safeParse({ name: formData.get("name"), tier: formData.get("tier") });
+  const parsed = skinSchema.safeParse({ name: formData.get("name"), tier: formData.get("tier") ?? undefined });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง" };
 
-  let imageUrl: string | null;
+  // A skin is created with its name only. Its picture is added afterwards,
+  // on the skin that now exists (row "ใส่รูป" or the screenshot cutter).
   try {
-    imageUrl = await optionalImage(formData);
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "อัปโหลดรูปภาพไม่สำเร็จ" };
-  }
-
-  try {
-    await prisma.skin.create({ data: { ...parsed.data, imageUrl, heroId } });
+    await prisma.skin.create({ data: { ...parsed.data, tier: parsed.data.tier ?? "NORMAL", heroId } });
   } catch (error) {
     if (isUniqueViolation(error)) return { error: "ฮีโร่ตัวนี้มีสกินชื่อนี้อยู่แล้ว" };
     throw error;
@@ -149,16 +146,16 @@ export async function createSkinAction(
 // Accepts any of the labels admins naturally type ("S+", "s+", "S_PLUS",
 // "limited", "ทั่วไป") and maps them back to a SkinTier.
 function parseTier(raw: string | undefined): SkinTier | null {
-  if (!raw) return "A";
+  if (!raw) return "NORMAL";
   const value = raw.trim().toUpperCase();
-  if (!value) return "A";
+  if (!value) return "NORMAL";
   for (const tier of SKIN_TIERS) {
     if (tier === value || SKIN_TIER_LABELS[tier].toUpperCase() === value) return tier;
   }
   return null;
 }
 
-// One skin per line: "ชื่อสกิน | tier" (tier optional, defaults to A).
+// One skin per line: "ชื่อสกิน" (an optional "| tier" is still accepted).
 // Existing names are skipped rather than failing the whole batch, so the
 // same list can be pasted again after adding a few new lines.
 export async function bulkAddSkinsAction(
@@ -185,7 +182,7 @@ export async function bulkAddSkinsAction(
     if (!tier || !parsed.success) {
       return { error: `บรรทัดที่ ${index + 1} ไม่ถูกต้อง: "${line}"` };
     }
-    rows.push(parsed.data);
+    rows.push({ name: parsed.data.name, tier });
   }
 
   const result = await prisma.skin.createMany({
@@ -207,7 +204,7 @@ export async function updateSkinAction(
 ): Promise<SkinFormState> {
   await requireAdmin();
 
-  const parsed = skinSchema.safeParse({ name: formData.get("name"), tier: formData.get("tier") });
+  const parsed = skinSchema.safeParse({ name: formData.get("name"), tier: formData.get("tier") ?? undefined });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง" };
 
   let imageUrl: string | null;
@@ -306,4 +303,26 @@ export async function importCatalogAction(_prev: SkinFormState, formData: FormDa
   return {
     success: `เพิ่มฮีโร่ใหม่ ${newHeroes.size} · สกินใหม่ ${result.count}${skipped > 0 ? ` (ข้ามที่มีอยู่แล้ว ${skipped})` : ""}`,
   };
+}
+
+// Sets (or replaces) only the picture of one skin. Used by the screenshot
+// cutter, which crops several skins out of one screenshot in a row.
+export async function setSkinImageAction(skinId: string, formData: FormData): Promise<SkinFormState> {
+  await requireAdmin();
+
+  let imageUrl: string | null;
+  try {
+    imageUrl = await optionalImage(formData);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "อัปโหลดรูปภาพไม่สำเร็จ" };
+  }
+  if (!imageUrl) return { error: "ไม่พบรูป กรุณาลองตัดใหม่อีกครั้ง" };
+
+  try {
+    const skin = await prisma.skin.update({ where: { id: skinId }, data: { imageUrl }, select: { heroId: true, name: true } });
+    revalidateSkinPages(skin.heroId);
+    return { success: `บันทึกรูป "${skin.name}" แล้ว` };
+  } catch {
+    return { error: "ไม่พบสกินนี้ อาจถูกลบไปแล้ว" };
+  }
 }

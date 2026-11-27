@@ -2,13 +2,11 @@
 // <canvas> in the visitor's browser, so generating a banner costs the server
 // nothing beyond serving the skin images.
 
-import { SKIN_TIER_COLORS, SKIN_TIER_LABELS, SKIN_TIERS, type SkinTier } from "@/lib/types";
 
 export type BannerSkin = {
   id: string;
   name: string;
   heroName: string;
-  tier: string;
   imageUrl: string | null;
 };
 
@@ -144,14 +142,6 @@ function columnsFor(count: number) {
   if (count <= 80) return 8;
   if (count <= 150) return 10;
   return 12;
-}
-
-function tierColor(tier: string) {
-  return SKIN_TIER_COLORS[tier as SkinTier] ?? SKIN_TIER_COLORS.NORMAL;
-}
-
-function tierLabel(tier: string) {
-  return SKIN_TIER_LABELS[tier as SkinTier] ?? tier;
 }
 
 function hashHue(text: string) {
@@ -421,34 +411,6 @@ function drawHeader(
     }
     cx += drawChip(ctx, cx, cy, label, value, theme.accent, "#ffffff", font) + 12;
   }
-  const chipsBottom = chips.length ? cy + 48 : 232;
-
-  // Tier summary
-  const counts = new Map<string, number>();
-  for (const skin of skins) counts.set(skin.tier, (counts.get(skin.tier) ?? 0) + 1);
-  let tx = PAD;
-  const ty = chipsBottom + 34;
-  ctx.font = `500 24px ${font}`;
-  ctx.textBaseline = "middle";
-  for (const tier of SKIN_TIERS) {
-    const n = counts.get(tier);
-    if (!n) continue;
-    const text = `${tierLabel(tier)} ×${n}`;
-    const w = ctx.measureText(text).width;
-    if (tx + w + 30 > WIDTH - PAD) break;
-    ctx.fillStyle = tierColor(tier);
-    ctx.beginPath();
-    ctx.arc(tx + 7, ty, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,0.8)";
-    ctx.shadowBlur = 8;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(text, tx + 22, ty + 1);
-    ctx.restore();
-    tx += w + 50;
-  }
-  ctx.textBaseline = "alphabetic";
 
   // Price block (bottom-left of the header)
   if (info.installment.trim()) {
@@ -516,7 +478,6 @@ export async function renderBanner(canvas: HTMLCanvasElement, options: BannerOpt
     const row = Math.floor(index / cols);
     const x = PAD + col * (tileW + GAP);
     const y = headerH + row * (tileH + GAP);
-    const color = tierColor(skin.tier);
 
     ctx.save();
     roundRect(ctx, x, y, tileW, tileH, radius);
@@ -558,24 +519,11 @@ export async function renderBanner(canvas: HTMLCanvasElement, options: BannerOpt
     }
     ctx.restore();
 
-    // Tier badge + border (outside the clip so the stroke isn't halved)
+    // Border (outside the clip so the stroke isn't halved)
     roundRect(ctx, x, y, tileW, tileH, radius);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = skin.tier === "NORMAL" ? 1 : 2.5;
+    ctx.strokeStyle = theme.accent + "99";
+    ctx.lineWidth = 2;
     ctx.stroke();
-
-    if (skin.tier !== "NORMAL") {
-      ctx.font = `700 ${badgeSize}px ${font}`;
-      const label = tierLabel(skin.tier);
-      const bw = ctx.measureText(label).width + badgeSize * 0.9;
-      const bh = badgeSize * 1.5;
-      roundRect(ctx, x + 4, y + 4, bw, bh, bh / 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.fillStyle = "#0a0a14";
-      ctx.textBaseline = "middle";
-      ctx.fillText(label, x + 4 + badgeSize * 0.45, y + 4 + bh / 2 + 1);
-    }
   });
 
   if (skins.length === 0) {

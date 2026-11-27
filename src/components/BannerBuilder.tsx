@@ -446,8 +446,7 @@ export function PayStep({
   const bannerKey = useMemo(
     () =>
       JSON.stringify({
-        // a picture added/changed by the visitor makes it a different banner
-        ids: skins.map((s) => (s.imageUrl?.startsWith("data:") ? `${s.id}:${s.imageUrl.length}` : s.id)),
+        ids: skins.map((s) => s.id),
         design: { ...design, background: design.background ? design.background.length : null },
         noWatermark,
       }),

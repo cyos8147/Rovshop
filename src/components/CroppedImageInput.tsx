@@ -80,6 +80,7 @@ export function CroppedImageInput({
       {picked ? (
         <ImageCropper
           file={picked}
+          mode="free"
           aspect={aspect}
           onCancel={() => setPicked(null)}
           onDone={({ blob, dataUrl }) => {

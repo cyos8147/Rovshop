@@ -1,3 +1,11 @@
+// On Render the public URL is provided as RENDER_EXTERNAL_URL. Use it as the
+// NextAuth/site URL when NEXTAUTH_URL isn't set, so the first deploy works
+// without knowing the URL in advance. Set NEXTAUTH_URL explicitly when using
+// a custom domain.
+if (!process.env.NEXTAUTH_URL && process.env.RENDER_EXTERNAL_URL) {
+  process.env.NEXTAUTH_URL = process.env.RENDER_EXTERNAL_URL;
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {

@@ -1,4 +1,3 @@
-import { Logo } from "@/components/Logo";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
@@ -18,7 +17,15 @@ export default async function HomePage() {
       <section className="bg-hero-gradient">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
           <div>
-            <div className="mb-4"><Logo size="lg" /></div>
+            <div className="mb-5 flex items-center gap-3" aria-hidden>
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet to-violet/40 text-lg text-white shadow-goldGlow">
+                ♛
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-[0.28em] text-ink-muted">
+                RoV · Banner Maker
+              </span>
+              <span className="h-px w-16 bg-gradient-to-r from-gold/60 to-transparent" />
+            </div>
             <p className="inline-block rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold-soft">
               จัดฟรี · จ่ายเมื่อดาวน์โหลด · หรือรายเดือนไม่จำกัด
             </p>
@@ -30,7 +37,7 @@ export default async function HomePage() {
               </span>
             </h1>
             <p className="mt-4 max-w-xl text-ink-muted">
-              ติ๊กสกินที่มี เลือกพื้นหลัง ใส่รายละเอียดไอดี ราคา ช่องทางติดต่อ แล้วได้ภาพเดียวพร้อมโพสต์ขาย
+              ติ๊กสกินที่มี เลือกพื้นหลัง ใส่ข้อมูลไอดี ราคา ช่องทางติดต่อ แล้วได้ภาพเดียวพร้อมโพสต์ขาย
               ไม่ต้องใช้โปรแกรมแต่งภาพ ใช้ได้ทั้งมือถือและคอม
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -43,7 +50,7 @@ export default async function HomePage() {
             </div>
             <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink-muted">
               <li>• {skinCount.toLocaleString("th-TH")} สกินในคลัง</li>
-              <li>• 4 ธีมป้าย</li>
+              <li>• 4 ธีมสี</li>
               <li>• {c(settings.skinPriceCents)} คอยน์/สกิน</li>
             </ul>
           </div>
@@ -84,7 +91,7 @@ export default async function HomePage() {
           {[
             { n: "1", title: "เลือกสกิน", desc: "ค้นหาชื่อฮีโร่หรือสกิน กดเลือกสกินที่มี และเรียงลำดับเองได้ตามใจ" },
             { n: "2", title: "เลือกพื้นหลัง", desc: "อัปโหลดรูปของคุณตัดให้พอดีหัวป้าย หรือเลือกธีมสีที่มีให้" },
-            { n: "3", title: "รายละเอียดไอดี", desc: "ใส่รหัสไอดี จำนวนฮีโร่/สกิน แรงค์ ราคา และช่องทางติดต่อ" },
+            { n: "3", title: "ข้อมูลไอดี", desc: "ใส่รหัสไอดี จำนวนฮีโร่/สกิน แรงค์ ราคา และช่องทางติดต่อ" },
             { n: "4", title: "ชำระเงิน / ดาวน์โหลด", desc: "ดูราคาก่อนจ่าย แล้วได้ภาพ PNG คมชัดพร้อมโพสต์ขาย" },
           ].map((step) => (
             <div key={step.n} className="card p-5">
@@ -107,8 +114,8 @@ export default async function HomePage() {
         <div className="card mt-8 grid overflow-hidden p-0 sm:grid-cols-2">
           {[
             { price: "ฟรี", label: "เลือกสกิน จัดเรียง และดูตัวอย่าง" },
-            { price: `${c(settings.skinPriceCents)} คอยน์`, label: "ROV · ต่อสกิน", gold: true },
-            { price: "ฟรี", label: "ตกแต่งป้าย (ธีม ข้อความ ราคา ช่องทางติดต่อ)" },
+            { price: `${c(settings.skinPriceCents)} คอยน์`, label: "RoV · ต่อสกิน", gold: true },
+            { price: "ฟรี", label: "ตกแต่งป้าย (พื้นหลัง ข้อมูลไอดี ราคา ช่องทางติดต่อ)" },
             {
               price: `+${c(settings.noWatermarkCents)} คอยน์`,
               label: "ไม่มีลายน้ำ OSCAR · แสดงราคาก่อนชำระทุกครั้ง",

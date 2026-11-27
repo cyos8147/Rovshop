@@ -296,7 +296,7 @@ export function SkinSorter({
           })}
           {filteredHeroes.length === 0 ? (
             <p className="py-12 text-center text-ink-muted">
-              {totalSkins === 0 ? "ยังไม่มีสกินในคลัง — แอดมินเพิ่มได้ที่เมนูคลังสกิน" : "ไม่พบสกินที่ค้นหา"}
+              {totalSkins === 0 ? "ยังไม่มีสกินในคลัง" : "ไม่พบสกินที่ค้นหา"}
             </p>
           ) : null}
         </div>

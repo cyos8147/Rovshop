@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getSettings } from "@/lib/settings";
-import { Logo } from "@/components/Logo";
 
 export async function Footer() {
   const settings = await getSettings();
@@ -10,9 +9,12 @@ export async function Footer() {
       <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-ink-muted">
         <div className="grid gap-8 md:grid-cols-3">
           <div>
-            <Logo size="sm" />
+            <p className="text-lg font-black uppercase tracking-wider">
+              <span className="bg-gradient-to-r from-gold-soft to-gold bg-clip-text text-transparent">Oscar</span>{" "}
+              <span className="text-xs font-medium tracking-[0.18em] text-ink-muted">Gaming images</span>
+            </p>
             <p className="mt-2 max-w-xs">
-              เว็บทำป้ายขายไอดีเกม เลือกสกิน ใส่รายละเอียด ได้ภาพเดียวพร้อมโพสต์
+              เว็บทำป้ายขายไอดีเกม เลือกสกิน ใส่ข้อมูลไอดี ได้ภาพเดียวพร้อมโพสต์
             </p>
           </div>
           <div>

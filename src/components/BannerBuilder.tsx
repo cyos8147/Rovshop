@@ -389,7 +389,7 @@ export function DetailsStep({
           <Field label="บัตรเปลี่ยนชื่อ" value={info.nameCards} onChange={(v) => set({ nameCards: v })} numeric suffix="ใบ" maxLength={4} />
           <Field label="คูปอง" value={info.coupons} onChange={(v) => set({ coupons: v })} numeric suffix="ใบ" maxLength={4} />
         </div>
-        <Field label="ไอเทมอื่นๆ" value={info.extraItem} onChange={(v) => set({ extraItem: v })} placeholder="เช่น Championship" maxLength={40} />
+        <Field label="ไอเทมอื่น ๆ" value={info.extraItem} onChange={(v) => set({ extraItem: v })} placeholder="เช่น Championship" maxLength={40} />
       </Section>
 
       <Section title="ช่องทางติดต่อ" hint={info.contact || "ยังไม่ใส่"}>

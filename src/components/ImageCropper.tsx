@@ -37,7 +37,7 @@ export function ImageCropper({
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [frame] = useState(() => {
-    const maxW = Math.min(360, window.innerWidth - 48);
+    const maxW = Math.min(aspect > 1.2 ? 560 : 360, window.innerWidth - 48);
     const maxH = Math.max(200, window.innerHeight - 280);
     let w = maxW;
     let h = w / aspect;
@@ -200,7 +200,7 @@ export function ImageCropper({
       aria-label={title}
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4"
     >
-      <div className="card w-full max-w-md space-y-3 p-4">
+      <div className={`card w-full space-y-3 p-4 ${aspect > 1.2 ? "max-w-xl" : "max-w-md"}`}>
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-ink">{title}</h2>
           <button type="button" onClick={onCancel} className="rounded-lg px-2 py-1 text-sm text-ink-muted hover:text-ink">

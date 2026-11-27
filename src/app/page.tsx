@@ -6,6 +6,12 @@ import { formatCoins } from "@/lib/coins";
 
 // Decorative tiles for the hero mock-up of a banner.
 const MOCK_TILES = Array.from({ length: 12 }, (_, i) => i);
+const TILE_STYLES = [
+  "border-violet/60 bg-gradient-to-br from-violet/60 to-[#1a1740]",
+  "border-sky-400/50 bg-gradient-to-br from-sky-500/40 to-[#14223d]",
+  "border-rose-400/50 bg-gradient-to-br from-rose-500/40 to-[#2a1530]",
+  "border-gold/50 bg-gradient-to-br from-gold/40 to-[#2a2112]",
+];
 
 export default async function HomePage() {
   const [settings, skinCount] = await Promise.all([getSettings(), prisma.skin.count()]);
@@ -15,22 +21,29 @@ export default async function HomePage() {
   return (
     <div>
       {/* Hero */}
-      <section className="bg-hero-gradient relative overflow-hidden">
-        {/* Background: soft glows, a faint grid, and a fade into the page. */}
+      <section className="relative overflow-hidden border-b border-border bg-bg">
+        {/* Background: a crisp diagonal "stage" behind the banner, a dot grid and thin gold lines. No glows. */}
         <div aria-hidden className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-32 top-10 h-96 w-96 rounded-full bg-violet/25 blur-3xl" />
-          <div className="absolute -right-24 top-24 h-[28rem] w-[28rem] rounded-full bg-gold/15 blur-3xl" />
           <div
-            className="absolute inset-0 opacity-[0.07]"
+            className="absolute inset-y-0 right-0 w-full bg-[#12112a] md:w-[56%]"
+            style={{ clipPath: "polygon(18% 0, 100% 0, 100% 100%, 0 100%)" }}
+          >
+            <div
+              className="absolute inset-0 opacity-[0.16]"
+              style={{
+                backgroundImage: "radial-gradient(#a78bfa 1px, transparent 1.2px)",
+                backgroundSize: "22px 22px",
+              }}
+            />
+          </div>
+          <div
+            className="absolute inset-y-0 right-0 hidden w-[56%] md:block"
             style={{
-              backgroundImage:
-                "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
-              backgroundSize: "44px 44px",
-              maskImage: "radial-gradient(ellipse at 70% 40%, #000 20%, transparent 75%)",
-              WebkitMaskImage: "radial-gradient(ellipse at 70% 40%, #000 20%, transparent 75%)",
+              clipPath: "polygon(18% 0, calc(18% + 3px) 0, 3px 100%, 0 100%)",
+              background: "linear-gradient(180deg, #e8b64a, #e8b64a 40%, #7c5cff)",
             }}
           />
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-bg to-transparent" />
+          <div className="absolute left-0 top-0 h-1 w-40 bg-gold" />
         </div>
         <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:py-20 md:grid-cols-[1.05fr_1fr]">
           <div>
@@ -47,7 +60,7 @@ export default async function HomePage() {
                 เสร็จในไม่กี่นาที
               </span>
             </h1>
-            <p className="mt-4 max-w-xl text-ink-muted">
+            <p className="mt-4 max-w-xl text-ink-muted md:max-w-sm lg:max-w-xl">
               ติ๊กสกินที่มี เลือกพื้นหลัง ใส่ข้อมูลไอดี ราคา ช่องทางติดต่อ แล้วได้ภาพเดียวพร้อมโพสต์ขาย
               ไม่ต้องใช้โปรแกรมแต่งภาพ ใช้ได้ทั้งมือถือและคอม
             </p>
@@ -68,10 +81,10 @@ export default async function HomePage() {
 
           <div aria-hidden className="relative mx-auto w-full max-w-md py-6 md:max-w-none md:px-6">
             {/* Cards stacked behind the main one */}
-            <div className="card absolute inset-x-8 top-2 bottom-8 -rotate-6 border-violet/30 bg-gradient-to-br from-violet/20 to-card opacity-70 md:inset-x-12" />
-            <div className="card absolute inset-x-10 top-4 bottom-6 rotate-[-2.5deg] border-gold/20 bg-card/80 opacity-80 md:inset-x-14" />
+            <div className="card absolute inset-x-8 top-2 bottom-8 -rotate-6 border-violet/30 bg-[#1b1840] md:inset-x-12" />
+            <div className="card absolute inset-x-10 top-4 bottom-6 rotate-[-2.5deg] border-gold/20 bg-[#16152e] md:inset-x-14" />
 
-          <div className="card relative z-10 rotate-1 bg-card p-4 shadow-goldGlow">
+          <div className="card relative z-10 rotate-1 border-gold/30 bg-card p-4 shadow-[0_28px_48px_-16px_rgba(0,0,0,0.75)]">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-lg font-bold text-ink">ขายไอดีเซียน สกินเพียบ</p>
@@ -89,8 +102,11 @@ export default async function HomePage() {
               {MOCK_TILES.map((i) => (
                 <div
                   key={i}
-                  className="aspect-[4/5] rounded-lg border-2 border-violet/50 bg-gradient-to-br from-violet/40 to-bg-soft"
-                />
+                  className={`relative aspect-[4/5] overflow-hidden rounded-lg border ${TILE_STYLES[i % TILE_STYLES.length]}`}
+                >
+                  <span className="absolute inset-x-0 bottom-0 h-1/4 bg-black/40" />
+                  <span className="absolute bottom-[9%] left-[12%] h-[6%] w-1/2 rounded-full bg-white/40" />
+                </div>
               ))}
             </div>
             <p className="mt-3 text-right text-[11px] text-ink-muted">
@@ -99,14 +115,14 @@ export default async function HomePage() {
           </div>
 
             {/* Floating badges around the banner */}
-            <div className="absolute -right-1 top-2 z-20 rotate-6 rounded-full border border-gold/50 bg-bg/90 px-3 py-1.5 text-xs font-bold text-gold shadow-goldGlow backdrop-blur sm:-right-3">
+            <div className="absolute -right-1 top-2 z-20 rotate-6 rounded-full border border-gold bg-bg px-3 py-1.5 text-xs font-bold text-gold shadow-[0_8px_16px_-6px_rgba(0,0,0,0.7)] sm:-right-3">
               ✓ ไม่มีลายน้ำ
             </div>
-            <div className="absolute -left-1 top-1/2 z-20 -rotate-6 rounded-xl border border-violet/50 bg-bg/90 px-3 py-2 text-xs font-semibold text-ink shadow-lg backdrop-blur sm:-left-3">
+            <div className="absolute -left-1 top-1/2 z-20 -rotate-6 rounded-xl border border-violet/60 bg-bg px-3 py-2 text-xs font-semibold text-ink shadow-[0_8px_16px_-6px_rgba(0,0,0,0.7)] sm:-left-3">
               <span className="text-gold">4</span> ขั้นตอน
               <span className="block text-[10px] font-normal text-ink-muted">เสร็จในไม่กี่นาที</span>
             </div>
-            <div className="absolute -bottom-1 right-6 z-20 rotate-3 rounded-full bg-gradient-to-r from-gold-soft to-gold px-3.5 py-1.5 text-xs font-black text-[#2a1b05] shadow-goldGlow">
+            <div className="absolute -bottom-1 right-6 z-20 rotate-3 rounded-full bg-gradient-to-r from-gold-soft to-gold px-3.5 py-1.5 text-xs font-black text-[#2a1b05] shadow-[0_8px_16px_-6px_rgba(0,0,0,0.7)]">
               พร้อมโพสต์ขาย
             </div>
           </div>

@@ -84,7 +84,9 @@ export default async function HomePage() {
     }),
   ]);
   // Optional artwork: drop a file at public/hero-bg.jpg (or .webp/.png) to use it behind the hero.
-  const heroArt = ["jpg", "webp", "png"].map((ext) => `/hero-bg.${ext}`).find((url) => existsSync(join(process.cwd(), "public", url)));
+  const heroArt =
+    settings.heroArtUrl ??
+    ["jpg", "webp", "png"].map((ext) => `/hero-bg.${ext}`).find((url) => existsSync(join(process.cwd(), "public", url)));
 
   const c = (cents: number) => formatCoins(cents);
 
@@ -96,8 +98,17 @@ export default async function HomePage() {
           {heroArt ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={heroArt} alt="" className="absolute inset-0 h-full w-full object-cover object-right" />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#0b0918] via-[#0b0918]/80 to-[#0b0918]/30" />
+              <img
+                src={heroArt}
+                alt=""
+                className="absolute inset-y-0 right-0 h-full w-full object-cover object-top md:w-[68%]"
+                style={{
+                  maskImage: "linear-gradient(to right, transparent 0%, #000 38%)",
+                  WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 38%)",
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0b0918] via-transparent to-[#0b0918]/40 md:from-[#0b0918]/70" />
+              <div className="absolute inset-0 bg-[#0b0918]/55 md:hidden" />
             </>
           ) : (
             <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice">

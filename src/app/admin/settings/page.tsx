@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { getSettings } from "@/lib/settings";
 import { SettingsForm } from "@/components/SettingsForm";
 import { PricingForm } from "@/components/MembershipAdmin";
-import { updatePricingAction } from "@/lib/actions/membership";
+import { updateHeroArtAction, updatePricingAction } from "@/lib/actions/membership";
+import { HeroArtForm } from "@/components/HeroArtForm";
 import { isSlipVerificationConfigured } from "@/lib/slip";
 
 export const metadata: Metadata = { title: "ตั้งค่าร้าน" };
@@ -18,6 +19,9 @@ export default async function AdminSettingsPage() {
       </p>
       <div className="mt-6 max-w-xl">
         <SettingsForm defaultContactUrl={settings.contactUrl} />
+      </div>
+      <div className="mt-6 max-w-xl">
+        <HeroArtForm action={updateHeroArtAction} currentUrl={settings.heroArtUrl ?? null} />
       </div>
       <div className="mt-6 max-w-xl">
         <PricingForm

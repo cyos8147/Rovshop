@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { SignOutButton } from "@/components/SignOutButton";
 import { Logo } from "@/components/Logo";
+import { NavLinks } from "@/components/NavLinks";
 import { prisma } from "@/lib/prisma";
 import { formatCoins } from "@/lib/coins";
 
@@ -19,17 +20,7 @@ export async function Header() {
           <Logo />
         </Link>
 
-        <nav className="hidden items-center gap-6 text-sm text-ink-muted md:flex">
-          <Link href="/sort" className="transition hover:text-gold">
-            ทำป้ายสกิน RoV
-          </Link>
-          <Link href="/#pricing" className="transition hover:text-gold">
-            ราคา
-          </Link>
-          <Link href="/faq" className="transition hover:text-gold">
-            คำถามที่พบบ่อย
-          </Link>
-        </nav>
+        <NavLinks />
 
         {session?.user?.role === "ADMIN" ? (
           <div className="flex items-center gap-2">
@@ -48,10 +39,10 @@ export async function Header() {
               aria-label="บัญชีของฉัน / เติมคอยน์"
               className="btn-secondary flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-sm"
             >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-b from-gold-soft to-gold text-[10px] font-black text-[#2a1b05]">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-b from-[#f5d78e] to-coin text-[10px] font-black text-[#2a1b05]">
                 C
               </span>
-              <span className="font-bold text-gold">{formatCoins(member?.coinCents ?? 0)}</span>
+              <span className="font-bold text-coin">{formatCoins(member?.coinCents ?? 0)}</span>
               <span className="text-ink-muted">คอยน์</span>
             </Link>
             {/* On phones sign-out lives on /account to keep the header on one line. */}

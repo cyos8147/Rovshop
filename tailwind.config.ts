@@ -6,32 +6,36 @@ const config: Config = {
     extend: {
       colors: {
         bg: {
-          DEFAULT: "#0a0a14",
-          soft: "#12121f",
+          DEFAULT: "#09061a",
+          soft: "#100b22",
         },
-        card: "#181828",
+        card: "#15102a",
         border: {
-          DEFAULT: "#2a2a40",
+          DEFAULT: "#2b2148",
         },
+        // "gold" is the brand accent token; it is violet now (name kept so
+        // existing classes keep working).
         gold: {
-          DEFAULT: "#e8b64a",
-          soft: "#f5d78e",
+          DEFAULT: "#8f6bff",
+          soft: "#c4b3ff",
         },
         violet: {
-          DEFAULT: "#7c5cff",
+          DEFAULT: "#6d4df2",
           soft: "#a58bff",
         },
+        coin: "#e8b64a",
         ink: {
-          DEFAULT: "#f2f2f7",
-          muted: "#9a9ab0",
+          DEFAULT: "#d9d5ea",
+          muted: "#9791b2",
         },
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-sans)", "sans-serif"],
       },
       boxShadow: {
         glow: "0 0 24px rgba(124, 92, 255, 0.25)",
-        goldGlow: "0 0 24px rgba(232, 182, 74, 0.25)",
+        goldGlow: "0 0 24px rgba(143, 107, 255, 0.25)",
       },
       backgroundImage: {
         "hero-gradient":

@@ -1,30 +1,28 @@
-// Brand mark: "OSCAR" carries the brand; "Gaming images" is a quiet
-// descriptor next to it. Used in the header.
-export function Logo({ size = "md" }: { size?: "md" | "lg" }) {
-  const big = size === "lg" ? "text-3xl" : "text-2xl";
+// OSCAR brand: the emblem (public/logo-mark.png, transparent background)
+// next to the wide-spaced wordmark.
+export function LogoMark({ className = "h-9 w-9" }: { className?: string }) {
   return (
-    <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap leading-none">
-      <span
-        className={`${big} font-black uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-gold-soft via-gold to-gold`}
-      >
-        Oscar
-      </span>
-      <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-muted">Gaming images</span>
-    </span>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src="/logo-mark.png" alt="" width={187} height={187} className={`${className} select-none object-contain`} />
   );
 }
 
-// The picture logo (public/logo.png). Its background is near-black, so
-// `mix-blend-lighten` lets the page colour show through around the lettering.
-export function LogoImage({ className = "h-28 sm:h-36" }: { className?: string }) {
+export function Logo({ size = "md" }: { size?: "sm" | "md" }) {
+  const small = size === "sm";
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src="/logo.png"
-      alt="OSCAR Gaming images"
-      width={900}
-      height={630}
-      className={`${className} w-auto select-none mix-blend-lighten`}
-    />
+    <span className="inline-flex items-center gap-2.5 whitespace-nowrap leading-none">
+      <LogoMark className={small ? "h-8 w-8" : "h-10 w-10"} />
+      <span className="h-7 w-px bg-border" />
+      <span className="flex flex-col gap-1">
+        <span
+          className={`font-display font-extrabold uppercase tracking-[0.22em] text-ink ${small ? "text-base" : "text-xl"}`}
+        >
+          Oscar
+        </span>
+        <span className="font-display text-[9px] font-medium uppercase tracking-[0.34em] text-ink-muted">
+          Gaming Images
+        </span>
+      </span>
+    </span>
   );
 }

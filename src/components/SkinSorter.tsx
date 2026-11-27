@@ -204,7 +204,7 @@ export function SkinSorter({
               onClick={() => goTo(key)}
               aria-current={tab === key ? "step" : undefined}
               className={`rounded-lg px-1 py-2 font-medium transition ${
-                tab === key ? "bg-gold text-bg" : "text-ink-muted hover:text-ink"
+                tab === key ? "bg-gold text-white" : "text-ink-muted hover:text-ink"
               }`}
             >
               {label}
@@ -453,7 +453,7 @@ function SkinTile({
         <p className="truncate text-[11px] font-medium leading-tight text-white">{name}</p>
       </div>
       {active ? (
-        <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold text-xs font-bold text-bg">
+        <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold text-xs font-bold text-white">
           ✓
         </span>
       ) : null}

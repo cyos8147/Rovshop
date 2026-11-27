@@ -15,7 +15,7 @@ export function LegalPage({
 }) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="text-2xl font-bold text-ink">{title}</h1>
+      <h1 className="border-l-4 border-gold pl-4 text-2xl font-bold text-ink">{title}</h1>
       <p className="mt-1 text-xs text-ink-muted">ปรับปรุงล่าสุด {updated}</p>
       <div className="mt-4 text-sm leading-relaxed text-ink-muted">{intro}</div>
       <div className="mt-6 space-y-4">

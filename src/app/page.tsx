@@ -1,3 +1,4 @@
+import { Logo } from "@/components/Logo";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
@@ -17,6 +18,7 @@ export default async function HomePage() {
       <section className="bg-hero-gradient">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
           <div>
+            <div className="mb-4"><Logo size="lg" /></div>
             <p className="inline-block rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold-soft">
               จัดฟรี · จ่ายเมื่อดาวน์โหลด · หรือรายเดือนไม่จำกัด
             </p>
@@ -28,7 +30,7 @@ export default async function HomePage() {
               </span>
             </h1>
             <p className="mt-4 max-w-xl text-ink-muted">
-              ติ๊กสกินที่มี ระบบเรียงตามความหายากให้อัตโนมัติ ใส่แรงค์ ราคา ช่องทางติดต่อ แล้วได้ภาพเดียวพร้อมโพสต์ขาย
+              ติ๊กสกินที่มี เลือกพื้นหลัง ใส่รายละเอียดไอดี ราคา ช่องทางติดต่อ แล้วได้ภาพเดียวพร้อมโพสต์ขาย
               ไม่ต้องใช้โปรแกรมแต่งภาพ ใช้ได้ทั้งมือถือและคอม
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -77,12 +79,13 @@ export default async function HomePage() {
 
       {/* How it works */}
       <section className="mx-auto max-w-6xl px-4 py-14">
-        <h2 className="text-center text-2xl font-bold text-ink">ทำป้ายได้ใน 3 ขั้นตอน</h2>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <h2 className="text-center text-2xl font-bold text-ink">ทำป้ายได้ใน 4 ขั้นตอน</h2>
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { n: "1", title: "เลือกสกิน", desc: "ค้นหาชื่อฮีโร่หรือสกิน กรองตามระดับ กดเลือกทั้งหมดของฮีโร่ได้ในคลิกเดียว" },
-            { n: "2", title: "จัดเรียง", desc: "เรียงตามความหายาก SSS → SS → S+ อัตโนมัติ หรือสลับตำแหน่งเองตามใจ" },
-            { n: "3", title: "ดาวน์โหลด / แชร์", desc: "ใส่แรงค์ ราคา ช่องทางติดต่อ เลือกธีม แล้วได้ภาพ PNG คมชัดพร้อมโพสต์" },
+            { n: "1", title: "เลือกสกิน", desc: "ค้นหาชื่อฮีโร่หรือสกิน กดเลือกสกินที่มี และเรียงลำดับเองได้ตามใจ" },
+            { n: "2", title: "เลือกพื้นหลัง", desc: "อัปโหลดรูปของคุณตัดให้พอดีหัวป้าย หรือเลือกธีมสีที่มีให้" },
+            { n: "3", title: "รายละเอียดไอดี", desc: "ใส่รหัสไอดี จำนวนฮีโร่/สกิน แรงค์ ราคา และช่องทางติดต่อ" },
+            { n: "4", title: "ชำระเงิน / ดาวน์โหลด", desc: "ดูราคาก่อนจ่าย แล้วได้ภาพ PNG คมชัดพร้อมโพสต์ขาย" },
           ].map((step) => (
             <div key={step.n} className="card p-5">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold font-bold text-bg">

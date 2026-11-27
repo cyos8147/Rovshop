@@ -15,11 +15,11 @@ const kanit = Kanit({
 
 export const metadata: Metadata = {
   title: {
-    default: "OSCAR Gaming images — ทำป้ายขายไอดีเกม เรียงสกินอัตโนมัติ",
+    default: "OSCAR Gaming images — ทำป้ายขายไอดีเกม RoV",
     template: "%s | OSCAR Gaming images",
   },
   description:
-    "เว็บทำป้ายขายไอดีเกม RoV เลือกสกิน เรียงตามความหายาก แล้วได้ภาพเดียวพร้อมโพสต์ จัดฟรี จ่ายเมื่อดาวน์โหลด",
+    "เว็บทำป้ายขายไอดีเกม RoV เลือกสกิน เลือกพื้นหลัง ใส่รายละเอียดไอดี แล้วได้ภาพเดียวพร้อมโพสต์ จัดฟรี จ่ายเมื่อดาวน์โหลด",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

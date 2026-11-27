@@ -10,9 +10,9 @@ export async function Footer() {
       <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-ink-muted">
         <div className="grid gap-8 md:grid-cols-3">
           <div>
-            <Logo />
+            <Logo size="sm" />
             <p className="mt-2 max-w-xs">
-              เว็บทำป้ายขายไอดีเกม เลือกสกิน เรียงอัตโนมัติ ได้ภาพเดียวพร้อมโพสต์
+              เว็บทำป้ายขายไอดีเกม เลือกสกิน ใส่รายละเอียด ได้ภาพเดียวพร้อมโพสต์
             </p>
           </div>
           <div>

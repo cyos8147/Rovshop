@@ -90,12 +90,10 @@ npm run dev
 
 ตั้งค่าอีเมล/รหัสผ่านแอดมินเองได้ผ่าน `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` ใน `.env` ก่อนรัน seed — **ควรเปลี่ยนรหัสผ่านก่อนใช้งานจริง**
 
-## Deploy ขึ้น Netlify + Supabase
+## Deploy ขึ้น Render + Supabase
 
-> **ทำไมเลือก Netlify:** แผนฟรีของ Netlify อนุญาตให้ใช้หารายได้ (เว็บนี้เก็บเงินลูกค้า) และเว็บไม่หลับ ส่วนแผนฟรีของ Vercel (Hobby) จำกัดเฉพาะการใช้ส่วนตัวที่ไม่หารายได้ — ถ้าจะใช้ Vercel ต้องเป็นแผน Pro
-> แผนฟรีของ Netlify มีโควต้าเครดิตต่อเดือน ถ้าคนเข้าเยอะจนเกิน เว็บจะหยุดจนถึงรอบเดือนใหม่ — ดูการใช้เครดิตได้ที่ Netlify → Usage & billing และอัปเกรดเป็นแผน Personal ได้เมื่อจำเป็น
-
-โค้ดพร้อม deploy ได้ทันที ทำตามขั้นตอนนี้ครั้งเดียว:
+> เว็บนี้รันเป็นเซิร์ฟเวอร์ Node ธรรมดา (`next start`) บน Render ส่วนฐานข้อมูลและรูปอยู่ที่ Supabase
+> **แผน Free ของ Render** ใช้ได้ แต่เว็บจะ "หลับ" ถ้าไม่มีคนเข้า 15 นาที (คนถัดไปต้องรอปลุกประมาณ 1 นาที) — แก้ด้วยการตั้งบอทยิงทุก 10 นาที (ดูข้อ 4) เมื่อมีรายได้แล้วแนะนำอัปเกรดเป็นแผนที่ไม่หลับ (Starter) ในหน้า Settings ของเว็บบน Render ได้ทันทีโดยไม่ต้องแก้โค้ด
 
 ### 1. ตั้งค่า Supabase (ฐานข้อมูล + ที่เก็บรูป)
 
@@ -110,18 +108,32 @@ npm run dev
    - **Discord:** ตั้งค่าช่อง → Integrations → Webhooks → New Webhook → Copy Webhook URL → ใส่ `DISCORD_WEBHOOK_URL`
 5. (ไม่บังคับ) สมัคร [SlipOK](https://slipok.com) เพื่อตรวจสลิปอัตโนมัติ แล้วนำ Branch ID และ API Key มาใส่ `SLIPOK_BRANCH_ID` / `SLIPOK_API_KEY` — ในหน้าตั้งค่าของ SlipOK ควรตั้งบัญชีผู้รับให้ตรงกับพร้อมเพย์ของร้าน เพื่อให้ระบบปฏิเสธสลิปที่โอนเข้าบัญชีอื่น
 
-### 2. Deploy บน Netlify
+### 2. Deploy บน Render
 
-1. ที่ [Netlify](https://app.netlify.com): **Add new project → Import an existing project → GitHub** → เลือก repo `cyos8147/rovshop` branch `main`
-   - ค่า build ไม่ต้องแก้ — อ่านจากไฟล์ `netlify.toml` ให้เอง (Netlify ติดตั้งตัวรัน Next.js ให้อัตโนมัติ)
-2. ก่อนกด Deploy ไปที่ **Environment variables** (หรือภายหลังที่ Project configuration → Environment variables) ใส่ค่าตามนี้ (เอาค่าจริงจาก Supabase ในข้อ 1) — ค่าที่เป็นความลับให้ติ๊ก "Contains secret values":
+1. ที่ [Render](https://dashboard.render.com) สมัคร/เข้าสู่ระบบด้วย GitHub → **New → Web Service** → เลือก repo `cyos8147/rovshop` (branch `main`)
+2. ตั้งค่า:
+
+   | ช่อง | ค่า |
+   | --- | --- |
+   | Language / Runtime | **Node** |
+   | Region | **Singapore** (ใกล้ไทยที่สุด — ถ้ามีให้เลือก) |
+   | Build Command | `npm ci --include=dev && npm run build` |
+   | Start Command | `npm run start` |
+   | Instance Type | **Free** (หรือ Starter ถ้าไม่อยากให้หลับ) |
+   | Health Check Path (ใน Advanced) | `/api/health` |
+
+   > `npm run build` จะรัน `prisma migrate deploy` (สร้าง/อัปเดตตารางในฐานข้อมูลให้เอง) แล้วค่อย build — ทุกครั้งที่ deploy
+   > `--include=dev` ต้องมี เพราะเครื่องมือ build (Prisma, Tailwind, TypeScript) อยู่ใน devDependencies
+
+3. ใส่ **Environment Variables** ตามนี้ (เอาค่าจริงจาก Supabase ในข้อ 1) แล้วกด **Create Web Service**:
 
    | ชื่อตัวแปร | ค่า |
    | --- | --- |
+   | `NODE_VERSION` | `22` |
    | `DATABASE_URL` | connection string แบบ Transaction จาก Supabase |
    | `DIRECT_URL` | connection string แบบ Direct จาก Supabase |
    | `NEXTAUTH_SECRET` | สุ่มค่าใหม่ด้วย `openssl rand -base64 32` |
-   | `NEXTAUTH_URL` | โดเมนจริงหลัง deploy เช่น `https://ชื่อเว็บ.netlify.app` (deploy ครั้งแรกแล้วค่อยแก้ให้ตรง แล้ว deploy ซ้ำ) |
+   | `NEXTAUTH_URL` | ลิงก์เว็บจริง เช่น `https://ชื่อเว็บ.onrender.com` (ดูได้ที่หัวหน้าเว็บบน Render หลังสร้าง แล้วกลับมาแก้ให้ตรง) |
    | `SEED_ADMIN_EMAIL` | อีเมลแอดมินที่ต้องการ |
    | `SEED_ADMIN_PASSWORD` | รหัสผ่านแอดมินที่ต้องการ (ตั้งให้รัดกุม) |
    | `NEXT_PUBLIC_SUPABASE_URL` | Project URL จาก Supabase |
@@ -133,10 +145,10 @@ npm run dev
    | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | แจ้งเตือนทาง Telegram (ไม่บังคับ, token เป็นความลับ) |
    | `DISCORD_WEBHOOK_URL` | แจ้งเตือนทาง Discord (ไม่บังคับ, เป็นความลับ) |
 
-3. กด **Deploy** — ขั้นตอน build จะรัน `prisma migrate deploy` ให้อัตโนมัติทุกครั้งที่ deploy (สร้างตารางในฐานข้อมูลให้เอง ไม่ต้องรันเองที่เครื่อง)
-4. ตั้งชื่อเว็บ: Project configuration → General → **Change project name** (ได้ `ชื่อ.netlify.app`) หรือผูกโดเมนของตัวเองที่ Domain management แล้วแก้ `NEXTAUTH_URL` ให้ตรง → Deploys → **Trigger deploy**
-
-> ข้อจำกัดของ Netlify ที่เกี่ยวกับเว็บนี้: ขนาดข้อมูลต่อคำขอสูงสุดราว 6MB (ตั้ง Next.js ไว้ที่ 6MB และจำกัดรูปละ 4MB แล้ว) — ถ้าแอดมินอัปโหลดรูปไอดีหลายรูปพร้อมกันแล้วไม่ผ่าน ให้อัปโหลดทีละน้อยลง
+4. **กันเว็บหลับ (เฉพาะแผน Free):** สมัคร [cron-job.org](https://cron-job.org) (ฟรี) → Create cronjob → URL `https://ชื่อเว็บ.onrender.com/api/health` → ทุก 10 นาที
+   - แผน Free ให้ชั่วโมงใช้งานฟรีรวมกันประมาณ 750 ชั่วโมง/เดือน **ต่อ workspace** — เปิดตลอดเดือนใช้ราว 720–744 ชั่วโมง พอดีสำหรับเว็บเดียว **อย่าสร้างบริการ Free ตัวที่สองใน workspace เดียวกัน** ไม่งั้นชั่วโมงหมดกลางเดือนแล้วเว็บถูกพักจนเดือนใหม่
+   - `/api/health` แตะฐานข้อมูลด้วย จึงช่วยให้ Supabase แผนฟรีไม่ถูกพักเพราะไม่มีการใช้งานไปพร้อมกัน
+   - Render อาจรีสตาร์ทบริการ Free ได้ทุกเมื่อ และไม่แนะนำแผน Free สำหรับใช้งานจริงระยะยาว — พอมีลูกค้าจ่ายเงินแล้ว อัปเกรดเป็น Starter (ประมาณ 7 ดอลลาร์/เดือน) แล้วเลิกใช้บอทได้
 
 ### 3. ใส่ข้อมูลเริ่มต้น (ทำครั้งเดียว)
 
@@ -153,7 +165,7 @@ npm run prisma:seed
 | คำสั่ง | อธิบาย |
 | --- | --- |
 | `npm run dev` | รันเซิร์ฟเวอร์สำหรับพัฒนา |
-| `npm run build` | รัน migration ที่ค้างอยู่แล้ว build โปรดักชัน (Netlify รันคำสั่งนี้ตอน deploy) |
+| `npm run build` | รัน migration ที่ค้างอยู่แล้ว build โปรดักชัน (Render รันคำสั่งนี้ตอน deploy) |
 | `npm run start` | รันเซิร์ฟเวอร์โปรดักชัน (ต้อง build ก่อน) |
 | `npm run prisma:migrate` | สร้าง/อัปเดต migration ระหว่างพัฒนา |
 | `npm run prisma:seed` | ใส่ข้อมูลตัวอย่าง (ไอดี, แอดมิน, รีวิว) |

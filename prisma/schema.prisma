@@ -6,9 +6,6 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
-  // "native" for local/dev builds; rhel-openssl-3.0.x for Netlify Functions
-  // (AWS Lambda, Amazon Linux 2023), where the site runs in production.
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 // Kept as plain strings (not native Postgres enums) so the app-level unions

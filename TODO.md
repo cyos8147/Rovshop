@@ -11,7 +11,9 @@
 
 ## ก่อนเปิดเว็บจริง
 - [ ] รวม branch เข้า `main`
-- [ ] Deploy บน Netlify (ดูหัวข้อ Deploy ใน README)
+- [ ] Deploy บน Render แผน Free (ดูหัวข้อ Deploy ใน README)
+- [ ] ตั้ง cron-job.org ยิง `/api/health` ทุก 10 นาที กันเว็บหลับ — มีบริการ Free ได้แค่ตัวเดียวใน workspace
+- [ ] เมื่อมีรายได้: อัปเกรด Render เป็น Starter แล้วเลิกใช้บอท
 - [ ] Supabase: bucket `product-images` (public) และ `payment-slips` (ไม่ public)
 - [ ] ตั้ง `SEED_ADMIN_PASSWORD` ใหม่ก่อนรัน seed
 - [ ] เข้าแอดมิน: ใส่เลขพร้อมเพย์ ตรวจราคา ลิงก์ Facebook

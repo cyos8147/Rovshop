@@ -8,7 +8,7 @@ const ALLOWED_IMAGE_MIME: Record<string, string> = {
   "image/webp": "webp",
 };
 
-export const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB (request limit is 6 MB, see next.config.js)
+export const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB (Server Action request limit is 6 MB, see next.config.js)
 
 function getSupabaseAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

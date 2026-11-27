@@ -36,6 +36,9 @@ export default async function HomePage() {
             <Link href="/accounts" className="btn-primary">
               ดูไอดีทั้งหมด
             </Link>
+            <Link href="/sort" className="btn-secondary">
+              เรียงสกินทำป้ายฟรี
+            </Link>
             <Link href="/faq" className="btn-secondary">
               วิธีการสั่งซื้อ
             </Link>

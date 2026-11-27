@@ -27,6 +27,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               จัดการไอดี
             </Link>
             <Link
+              href="/admin/skins"
+              className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
+            >
+              คลังสกิน
+            </Link>
+            <Link
               href="/admin/settings"
               className="block rounded-lg px-3 py-2 text-ink transition hover:bg-bg-soft"
             >

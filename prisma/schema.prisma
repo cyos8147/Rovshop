@@ -72,3 +72,33 @@ model Settings {
   contactUrl String   @default("https://www.facebook.com/")
   updatedAt  DateTime @updatedAt
 }
+
+// ---------------------------------------------------------------------------
+// Skin sorter (/sort): the hero/skin catalog customers pick from to build a
+// single "ID for sale" banner image. Images are optional — tiles without one
+// fall back to a generated placeholder so the catalog can be filled in by
+// name first and illustrated later.
+
+model Hero {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  role      String   @default("FIGHTER")
+  imageUrl  String?
+  skins     Skin[]
+  createdAt DateTime @default(now())
+}
+
+model Skin {
+  id        String   @id @default(cuid())
+  name      String
+  // See SKIN_TIERS in src/lib/types.ts (plain string, no migration needed
+  // to add a tier).
+  tier      String   @default("A")
+  imageUrl  String?
+  hero      Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  heroId    String
+  createdAt DateTime @default(now())
+
+  @@unique([heroId, name])
+  @@index([tier])
+}

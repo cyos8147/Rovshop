@@ -22,9 +22,14 @@ export default async function EditAccountPage({ params }: { params: Promise<{ id
     <div>
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-ink">แก้ไขไอดี</h1>
-        <a href={`/accounts/${account.slug}`} target="_blank" rel="noreferrer" className="text-sm text-gold hover:underline">
-          ดูหน้าจริง →
-        </a>
+        <div className="flex items-center gap-4">
+          <a href={`/sort?account=${account.slug}`} className="text-sm text-gold hover:underline">
+            ทำป้ายจากไอดีนี้
+          </a>
+          <a href={`/accounts/${account.slug}`} target="_blank" rel="noreferrer" className="text-sm text-gold hover:underline">
+            ดูหน้าจริง →
+          </a>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_260px]">

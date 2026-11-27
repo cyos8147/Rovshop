@@ -198,6 +198,24 @@ const testimonialSeeds = [
   { name: "แนน", rating: 5, comment: "แอดมินใจดี ให้คำแนะนำการเปลี่ยนรหัสผ่านหลังรับไอดีอย่างละเอียด" },
 ] as const;
 
+// Sample catalog for the skin sorter (/sort). Images are left empty — the
+// banner draws a coloured placeholder tile — so admins can upload real art
+// from /admin/skins later.
+const heroSeeds: { name: string; role: string; skins: [string, string][] }[] = [
+  { name: "Airi", role: "ASSASSIN", skins: [["Shadowblade", "SS"], ["Kimono", "A"], ["Summer Breeze", "S"]] },
+  { name: "Florentino", role: "FIGHTER", skins: [["Dimension Breaker", "SSS"], ["Lunar Night", "S_PLUS"], ["Default Plus", "NORMAL"]] },
+  { name: "Liliana", role: "MAGE", skins: [["Pool Party", "S"], ["Star Guardian", "S_PLUS"], ["Moon Festival", "LIMITED"]] },
+  { name: "Murad", role: "ASSASSIN", skins: [["Time Traveller", "SS"], ["Esports Edition", "S_PLUS"], ["Street Style", "A"]] },
+  { name: "Nakroth", role: "ASSASSIN", skins: [["Lightning Lord", "SSS"], ["Ice Lancer", "S"], ["Academy", "A"]] },
+  { name: "Thane", role: "TANK", skins: [["S-Class", "SS"], ["Iron Guard", "A"]] },
+  { name: "Tulen", role: "MAGE", skins: [["Storm Emperor", "SS"], ["Chronicle", "S"], ["School Days", "NORMAL"]] },
+  { name: "Valhein", role: "CARRY", skins: [["Vermillion Gloom", "SS"], ["Monster Hunter", "S"], ["Holiday", "A"]] },
+  { name: "Violet", role: "CARRY", skins: [["Star Guardian", "S_PLUS"], ["Cyber Agent", "S"], ["New Year", "LIMITED"]] },
+  { name: "Yena", role: "FIGHTER", skins: [["Star Guardian", "S_PLUS"], ["Dragon Princess", "SS"]] },
+  { name: "Zephys", role: "FIGHTER", skins: [["S-Class", "SS"], ["Dark Knight", "S"], ["Lunar Year", "LIMITED"]] },
+  { name: "Krizzix", role: "SUPPORT", skins: [["Galaxy Explorer", "S"], ["Snow Day", "A"]] },
+];
+
 async function main() {
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@rovshop.dev";
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "Admin1234!";
@@ -255,6 +273,20 @@ async function main() {
   }
 
   console.log(`Seeded ${testimonialSeeds.length} testimonials`);
+
+  for (const heroSeed of heroSeeds) {
+    const hero = await prisma.hero.upsert({
+      where: { name: heroSeed.name },
+      update: {},
+      create: { name: heroSeed.name, role: heroSeed.role },
+    });
+    await prisma.skin.createMany({
+      data: heroSeed.skins.map(([name, tier]) => ({ name, tier, heroId: hero.id })),
+      skipDuplicates: true,
+    });
+  }
+
+  console.log(`Seeded ${heroSeeds.length} heroes for the skin sorter`);
 }
 
 main()

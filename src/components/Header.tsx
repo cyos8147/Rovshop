@@ -19,6 +19,9 @@ export async function Header() {
           <Link href="/accounts" className="transition hover:text-gold">
             ไอดีทั้งหมด
           </Link>
+          <Link href="/sort" className="transition hover:text-gold">
+            เรียงสกินทำป้าย
+          </Link>
           <Link href="/faq" className="transition hover:text-gold">
             คำถามที่พบบ่อย
           </Link>

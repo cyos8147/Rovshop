@@ -1,0 +1,62 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+import { createHeroAction } from "@/lib/actions/skins";
+import { HeroForm } from "@/components/SkinAdmin";
+import { HERO_ROLE_LABELS, type HeroRole } from "@/lib/types";
+
+export const metadata: Metadata = { title: "คลังสกิน" };
+
+export default async function AdminSkinsPage() {
+  const heroes = await prisma.hero.findMany({
+    orderBy: { name: "asc" },
+    include: { _count: { select: { skins: true } } },
+  });
+  const totalSkins = heroes.reduce((sum, hero) => sum + hero._count.skins, 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">คลังสกิน</h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            {heroes.length} ฮีโร่ · {totalSkins} สกิน — ข้อมูลนี้ใช้ในหน้า{" "}
+            <Link href="/sort" className="text-gold hover:underline">
+              เรียงสกินทำป้าย
+            </Link>
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 font-semibold text-ink">เพิ่มฮีโร่ใหม่</h2>
+        <HeroForm action={createHeroAction} submitLabel="เพิ่มฮีโร่" />
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {heroes.map((hero) => (
+          <Link
+            key={hero.id}
+            href={`/admin/skins/${hero.id}`}
+            className="card flex items-center gap-3 p-3 transition hover:border-gold"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={hero.imageUrl ?? `/api/placeholder?text=${encodeURIComponent(hero.name)}&w=200&h=200`}
+              alt=""
+              className="h-12 w-12 rounded-lg object-cover"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium text-ink">{hero.name}</p>
+              <p className="text-xs text-ink-muted">
+                {HERO_ROLE_LABELS[hero.role as HeroRole] ?? hero.role} · {hero._count.skins} สกิน
+              </p>
+            </div>
+            <span className="text-sm text-ink-muted">จัดการ →</span>
+          </Link>
+        ))}
+      </div>
+      {heroes.length === 0 ? <p className="py-6 text-center text-ink-muted">ยังไม่มีฮีโร่ในระบบ</p> : null}
+    </div>
+  );
+}

@@ -20,7 +20,22 @@ function getSupabaseAdminClient() {
   }
   // Service-role key only ever runs on the server (this file is
   // "server-only") — never send it to a client component.
-  return createClient(url, serviceKey, { auth: { persistSession: false } });
+  // New-style secret keys ("sb_secret_...") are not JWTs. supabase-js also
+  // sends the key as a Bearer token, which Storage rejects ("Invalid Compact
+  // JWS"), so for those keys only the apikey header is sent.
+  const isNewStyleKey = serviceKey.startsWith("sb_");
+  return createClient(url, serviceKey, {
+    auth: { persistSession: false },
+    global: isNewStyleKey
+      ? {
+          fetch: (input, init) => {
+            const headers = new Headers(init?.headers);
+            if (headers.get("authorization") === `Bearer ${serviceKey}`) headers.delete("authorization");
+            return fetch(input, { ...init, headers });
+          },
+        }
+      : undefined,
+  });
 }
 
 // Validates the browser-reported MIME type and size, then uploads the file

@@ -195,7 +195,7 @@ export function SkinSorter({
   return (
     <div className="pb-28">
       {/* Steps */}
-      <div className="sticky top-[57px] z-30 -mx-4 border-b border-border bg-bg/95 px-4 py-2 backdrop-blur">
+      <div className="sticky top-[71px] z-30 -mx-4 border-b border-border bg-bg/95 px-4 py-2 backdrop-blur">
         <div className="grid grid-cols-4 gap-1 rounded-xl bg-bg-soft p-1 text-xs sm:text-sm">
           {STEPS.map(({ key, label }) => (
             <button
@@ -408,7 +408,7 @@ export function SkinSorter({
                 disabled={tab === "pick" && ordered.length === 0}
                 className="btn-primary"
               >
-                ถัดไป: {STEPS[stepIndex].short} →
+                ถัดไป: {STEPS[stepIndex].short}
               </button>
             ) : null}
           </div>

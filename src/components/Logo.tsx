@@ -12,8 +12,8 @@ export function Logo({ size = "md" }: { size?: "sm" | "md" }) {
   return (
     <span className="inline-flex items-center gap-2.5 whitespace-nowrap leading-none">
       <LogoMark className={small ? "h-8 w-8" : "h-10 w-10"} />
-      <span className="h-7 w-px bg-border" />
-      <span className="flex flex-col gap-1">
+      <span className="h-7 w-px bg-border md:max-lg:hidden" />
+      <span className="flex flex-col gap-1 md:max-lg:hidden">
         <span
           className={`font-display font-extrabold uppercase tracking-[0.22em] text-ink ${small ? "text-base" : "text-xl"}`}
         >

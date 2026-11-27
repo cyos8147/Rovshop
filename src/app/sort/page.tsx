@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { SkinSorter } from "@/components/SkinSorter";
 import type { BannerInfo } from "@/lib/banner";
-import { daysLeft, getCurrentAccess } from "@/lib/membership";
+import { getWallet } from "@/lib/wallet";
 import { getSettings } from "@/lib/settings";
 import { CrownIcon } from "@/components/icons";
 
 export const metadata: Metadata = {
   title: "เรียงสกินทำป้ายขายไอดี",
-  description: "เลือกสกิน RoV ที่มี จัดเรียง แล้วสร้างเป็นภาพป้ายขายไอดีภาพเดียว ใช้ได้ทั้งมือถือและคอม ทดลองใช้ฟรี",
+  description: "เลือกสกิน RoV ที่มี จัดเรียง แล้วสร้างเป็นภาพป้ายขายไอดีภาพเดียว ใช้ได้ทั้งมือถือและคอม จัดฟรี จ่ายเฉพาะตอนดาวน์โหลด",
 };
 
 export default async function SortPage({
@@ -18,7 +18,7 @@ export default async function SortPage({
 }) {
   const { account: accountSlug } = await searchParams;
 
-  const [heroes, account, access, settings] = await Promise.all([
+  const [heroes, account, wallet, settings] = await Promise.all([
     prisma.hero.findMany({
       orderBy: { name: "asc" },
       select: {
@@ -34,7 +34,7 @@ export default async function SortPage({
           select: { title: true, rank: true, heroCount: true, price: true, discountPrice: true },
         })
       : null,
-    getCurrentAccess(),
+    getWallet(),
     getSettings(),
   ]);
 
@@ -66,7 +66,7 @@ export default async function SortPage({
             เลือกสกินที่มี → จัดเรียง → ได้ภาพเดียวพร้อมโพสต์
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <span className="pill">ลองจัดได้เลยไม่ต้องสมัคร</span>
+            <span className="pill">จัดและดูตัวอย่างฟรี · จ่ายตอนดาวน์โหลด</span>
             <span className="pill">
               {heroes.length} ฮีโร่ · {skinCount.toLocaleString("th-TH")} สกินในคลัง
             </span>
@@ -78,12 +78,12 @@ export default async function SortPage({
         heroes={heroes}
         initialInfo={initialInfo}
         watermark={{ text: "ทำป้ายที่", brand: "OSCAR", suffix: "Gaming images" }}
-        access={{
-          state: access.state,
-          daysLeft: daysLeft(access.until),
-          trialDays: settings.trialDays,
-          planPrice: settings.planPrice,
-          planDays: settings.planDays,
+        wallet={{
+          state: wallet.state,
+          balanceCents: wallet.balanceCents,
+          skinPriceCents: settings.skinPriceCents,
+          noWatermarkCents: settings.noWatermarkCents,
+          signupBonusCents: settings.signupBonusCents,
         }}
       />
     </div>

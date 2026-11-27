@@ -2,9 +2,15 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { SignOutButton } from "@/components/SignOutButton";
 import { Logo } from "@/components/Logo";
+import { prisma } from "@/lib/prisma";
+import { formatCoins } from "@/lib/coins";
 
 export async function Header() {
   const session = await getSession();
+  const member =
+    session?.user?.role === "MEMBER"
+      ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { coinCents: true } })
+      : null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-violet-soft/20 bg-[#251c4c]/85 backdrop-blur-md">
@@ -40,8 +46,16 @@ export async function Header() {
           </div>
         ) : session?.user ? (
           <div className="flex items-center gap-2">
-            <Link href="/account" className="btn-secondary whitespace-nowrap px-3 py-1.5 text-sm">
-              บัญชีของฉัน
+            <Link
+              href="/account"
+              aria-label="บัญชีของฉัน / เติมคอยน์"
+              className="btn-secondary flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-sm"
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-b from-gold-soft to-gold text-[10px] font-black text-[#2a1b05]">
+                C
+              </span>
+              <span className="font-bold text-gold">{formatCoins(member?.coinCents ?? 0)}</span>
+              <span className="text-ink-muted">คอยน์</span>
             </Link>
             {/* On phones sign-out lives on /account to keep the header on one line. */}
             <span className="hidden sm:inline">

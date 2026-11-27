@@ -6,7 +6,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { registerAction, type RegisterState } from "@/lib/actions/membership";
 
-export function RegisterForm({ callbackUrl, trialDays }: { callbackUrl: string; trialDays: number }) {
+export function RegisterForm({ callbackUrl, bonusText }: { callbackUrl: string; bonusText: string | null }) {
   const [state, formAction, pending] = useActionState<RegisterState, FormData>(registerAction, {});
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +18,7 @@ export function RegisterForm({ callbackUrl, trialDays }: { callbackUrl: string; 
     if (!state.ok) return;
     setSigningIn(true);
     signIn("credentials", { email, password, redirect: false }).then(() => {
-      router.push(state.trialGranted ? callbackUrl : "/account");
+      router.push(callbackUrl);
       router.refresh();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -59,7 +59,7 @@ export function RegisterForm({ callbackUrl, trialDays }: { callbackUrl: string; 
         <input type="password" name="confirm" required minLength={8} autoComplete="new-password" className="input" />
       </div>
       <button type="submit" disabled={pending || signingIn} className="btn-primary w-full">
-        {pending || signingIn ? "กำลังสมัคร..." : trialDays > 0 ? `สมัครและทดลองใช้ฟรี ${trialDays} วัน` : "สมัครสมาชิก"}
+        {pending || signingIn ? "กำลังสมัคร..." : bonusText ? `สมัครและรับฟรี ${bonusText} คอยน์` : "สมัครสมาชิก"}
       </button>
       <p className="text-center text-sm text-ink-muted">
         มีบัญชีแล้ว?{" "}

@@ -14,28 +14,28 @@ generator client {
 // allowed value unions (Role, AccountStatus, LoginType).
 
 model User {
-  id           String    @id @default(cuid())
+  id           String     @id @default(cuid())
   name         String
-  email        String    @unique
+  email        String     @unique
   phone        String?
   passwordHash String
-  role         String    @default("ADMIN")
-  // Banner-tool membership (role MEMBER). Access is active while either
-  // date is in the future; see src/lib/membership.ts.
-  trialEndsAt  DateTime?
-  paidUntil    DateTime?
+  role         String     @default("ADMIN")
+  // Banner-tool wallet (role MEMBER), in hundredths of a coin so prices
+  // like 0.3 coin/skin stay exact integers. 1 coin = 1 THB.
+  coinCents    Int        @default(0)
   payments     Payment[]
-  createdAt    DateTime  @default(now())
+  downloads    Download[]
+  createdAt    DateTime   @default(now())
 }
 
-// A slip a member uploaded to pay for the plan. Auto-approved when SlipOK
+// A coin top-up: the slip a member uploaded. Auto-approved when SlipOK
 // verifies it, otherwise PENDING until an admin approves/rejects it.
+// Approval credits `amount` THB as `amount` coins.
 model Payment {
   id         String    @id @default(cuid())
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId     String
   amount     Int
-  days       Int
   // PENDING | APPROVED | REJECTED (see PAYMENT_STATUSES in src/lib/types.ts)
   status     String    @default("PENDING")
   // Bank transaction reference from the slip. Unique so the same slip can
@@ -95,18 +95,32 @@ model Testimonial {
   createdAt DateTime @default(now())
 }
 
+// One paid banner download (the coins it cost).
+model Download {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  skinCount Int
+  costCents Int
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
 // Single-row site settings. Always read/written with id = "main".
 model Settings {
-  id            String   @id
-  contactUrl    String   @default("https://www.facebook.com/")
-  // Banner-tool plan. promptpayId is a phone number, national ID / tax ID
-  // or e-wallet ID; empty means payments aren't set up yet.
-  promptpayId   String   @default("")
-  promptpayName String   @default("")
-  planPrice     Int      @default(199)
-  planDays      Int      @default(30)
-  trialDays     Int      @default(3)
-  updatedAt     DateTime @updatedAt
+  id               String   @id
+  contactUrl       String   @default("https://www.facebook.com/")
+  // Banner-tool pricing (coin hundredths; 1 coin = 1 THB). promptpayId is
+  // a phone number, citizen/tax ID or e-wallet ID; empty = top-ups off.
+  promptpayId      String   @default("")
+  promptpayName    String   @default("")
+  skinPriceCents   Int      @default(30)
+  noWatermarkCents Int      @default(500)
+  signupBonusCents Int      @default(0)
+  minTopup         Int      @default(20)
+  updatedAt        DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------

@@ -9,16 +9,14 @@ import { prisma } from "@/lib/prisma";
 import { getSession, requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { getSettings, SETTINGS_ID } from "@/lib/settings";
-import { extendMembership } from "@/lib/membership";
 import { verifySlip } from "@/lib/slip";
 import { savePrivateSlip, validateImageFile } from "@/lib/uploads";
 import { parsePromptPayId } from "@/lib/promptpay";
+import { downloadCostCents, formatCoins, MAX_TOPUP } from "@/lib/coins";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-// Marks a browser that already started a free trial, so creating a second
-// account from the same device doesn't hand out another one. Easy to clear,
-// but it stops the casual "just sign up again" loop.
-const TRIAL_COOKIE = "oscar_trial_used";
+// Marks a browser that already received the sign-up bonus, so creating a
+// second account from the same device doesn't hand out more free coins.
+const BONUS_COOKIE = "oscar_bonus_used";
 
 async function clientIp() {
   const h = await headers();
@@ -35,7 +33,7 @@ const registerSchema = z
   })
   .refine((v) => v.password === v.confirm, { message: "ยืนยันรหัสผ่านไม่ตรงกัน", path: ["confirm"] });
 
-export type RegisterState = { error?: string; ok?: boolean; trialGranted?: boolean };
+export type RegisterState = { error?: string; ok?: boolean };
 
 export async function registerAction(_prev: RegisterState, formData: FormData): Promise<RegisterState> {
   if (!rateLimit(`register:${await clientIp()}`, 5, 60 * 60 * 1000)) {
@@ -50,8 +48,8 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง" };
 
   const cookieStore = await cookies();
-  const trialGranted = !cookieStore.get(TRIAL_COOKIE);
-  const { trialDays } = await getSettings();
+  const { signupBonusCents } = await getSettings();
+  const bonus = cookieStore.get(BONUS_COOKIE) ? 0 : signupBonusCents;
 
   try {
     await prisma.user.create({
@@ -60,7 +58,7 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
         email: parsed.data.email,
         passwordHash: await bcrypt.hash(parsed.data.password, 10),
         role: "MEMBER",
-        trialEndsAt: trialGranted ? new Date(Date.now() + trialDays * DAY_MS) : null,
+        coinCents: bonus,
       },
     });
   } catch (error) {
@@ -70,18 +68,68 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
     throw error;
   }
 
-  cookieStore.set(TRIAL_COOKIE, "1", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 365 * 24 * 60 * 60,
-    path: "/",
-  });
-
-  return { ok: true, trialGranted };
+  if (bonus > 0) {
+    cookieStore.set(BONUS_COOKIE, "1", {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 365 * 24 * 60 * 60,
+      path: "/",
+    });
+  }
+  return { ok: true };
 }
 
-// --- Pay with a slip -------------------------------------------------------------
+// --- Pay for a download -----------------------------------------------------------
+
+export type ChargeResult =
+  | { ok: true; balanceCents: number; costCents: number }
+  | { ok: false; reason: "login" | "funds" | "invalid"; message: string; balanceCents?: number };
+
+// Deducts the price of one banner download. The price is computed here
+// from the skin ids (the server counts which ones exist), never taken from
+// the client. The balance check and the deduction are a single conditional
+// UPDATE, so two downloads at once can't overdraw the wallet.
+export async function chargeDownloadAction(skinIds: string[], noWatermark: boolean): Promise<ChargeResult> {
+  const session = await getSession();
+  if (!session?.user?.id) return { ok: false, reason: "login", message: "กรุณาเข้าสู่ระบบก่อนดาวน์โหลด" };
+
+  if (!Array.isArray(skinIds) || skinIds.length > 1000 || skinIds.some((id) => typeof id !== "string")) {
+    return { ok: false, reason: "invalid", message: "ข้อมูลไม่ถูกต้อง" };
+  }
+  const uniqueIds = [...new Set(skinIds)];
+  const skinCount = await prisma.skin.count({ where: { id: { in: uniqueIds } } });
+  if (skinCount === 0) return { ok: false, reason: "invalid", message: "ยังไม่ได้เลือกสกิน" };
+
+  if (session.user.role === "ADMIN") return { ok: true, balanceCents: 0, costCents: 0 };
+
+  const settings = await getSettings();
+  const cost = downloadCostCents(skinCount, Boolean(noWatermark), settings);
+  const userId = session.user.id;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const { count } = await tx.user.updateMany({
+      where: { id: userId, coinCents: { gte: cost } },
+      data: { coinCents: { decrement: cost } },
+    });
+    if (count === 0) return null;
+    await tx.download.create({ data: { userId, skinCount, costCents: cost } });
+    return tx.user.findUniqueOrThrow({ where: { id: userId }, select: { coinCents: true } });
+  });
+
+  if (!result) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { coinCents: true } });
+    return {
+      ok: false,
+      reason: "funds",
+      message: `คอยน์ไม่พอ ต้องใช้ ${formatCoins(cost)} คอยน์`,
+      balanceCents: user?.coinCents ?? 0,
+    };
+  }
+  return { ok: true, balanceCents: result.coinCents, costCents: cost };
+}
+
+// --- Top up with a slip -------------------------------------------------------------
 
 export type SlipState = { error?: string; success?: string; pending?: string };
 
@@ -96,6 +144,12 @@ export async function submitSlipAction(_prev: SlipState, formData: FormData): Pr
     return { error: "ส่งสลิปบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่" };
   }
 
+  const settings = await getSettings();
+  if (!parsePromptPayId(settings.promptpayId)) return { error: "ร้านยังไม่ได้ตั้งค่าการรับเงิน กรุณาติดต่อแอดมิน" };
+
+  const amount = z.coerce.number().int().min(settings.minTopup).max(MAX_TOPUP).safeParse(formData.get("amount"));
+  if (!amount.success) return { error: `เติมได้ตั้งแต่ ${settings.minTopup} ถึง ${MAX_TOPUP} บาท` };
+
   const file = formData.get("slip");
   if (!(file instanceof File) || file.size === 0) return { error: "กรุณาเลือกรูปสลิป" };
   try {
@@ -105,23 +159,21 @@ export async function submitSlipAction(_prev: SlipState, formData: FormData): Pr
   }
 
   const pending = await prisma.payment.findFirst({ where: { userId, status: "PENDING" } });
-  if (pending) return { pending: "มีสลิปที่รอแอดมินตรวจสอบอยู่แล้ว ระบบจะเปิดใช้งานให้หลังตรวจเสร็จ" };
+  if (pending) return { pending: "มีสลิปที่รอแอดมินตรวจสอบอยู่แล้ว ระบบจะเติมคอยน์ให้หลังตรวจเสร็จ" };
 
-  const settings = await getSettings();
-  if (!parsePromptPayId(settings.promptpayId)) return { error: "ร้านยังไม่ได้ตั้งค่าการรับเงิน กรุณาติดต่อแอดมิน" };
-
-  const result = await verifySlip(file, settings.planPrice);
-
+  const result = await verifySlip(file, amount.data);
   if (result.kind === "rejected") return { error: result.reason };
 
   if (result.kind === "verified") {
+    // Credit what the slip actually shows (SlipOK already checked it isn't
+    // below the requested amount).
+    const credited = result.amount;
     try {
-      const paidUntil = await prisma.$transaction(async (tx) => {
+      const balance = await prisma.$transaction(async (tx) => {
         await tx.payment.create({
           data: {
             userId,
-            amount: result.amount,
-            days: settings.planDays,
+            amount: credited,
             status: "APPROVED",
             transRef: result.transRef,
             senderName: result.senderName,
@@ -129,12 +181,15 @@ export async function submitSlipAction(_prev: SlipState, formData: FormData): Pr
             reviewedAt: new Date(),
           },
         });
-        return extendMembership(tx, userId, settings.planDays);
+        const user = await tx.user.update({
+          where: { id: userId },
+          data: { coinCents: { increment: credited * 100 } },
+          select: { coinCents: true },
+        });
+        return user.coinCents;
       });
       revalidatePath("/account");
-      return {
-        success: `ชำระเงินสำเร็จ ใช้งานได้ถึง ${paidUntil.toLocaleDateString("th-TH", { dateStyle: "long" })}`,
-      };
+      return { success: `เติม ${credited} คอยน์สำเร็จ ยอดคงเหลือ ${formatCoins(balance)} คอยน์` };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         return { error: "สลิปนี้เคยถูกใช้งานแล้ว" };
@@ -155,8 +210,7 @@ export async function submitSlipAction(_prev: SlipState, formData: FormData): Pr
   await prisma.payment.create({
     data: {
       userId,
-      amount: settings.planPrice,
-      days: settings.planDays,
+      amount: amount.data,
       status: "PENDING",
       slipPath,
       note: result.reason + (slipPath ? "" : " (ไม่ได้เก็บรูปสลิป)"),
@@ -173,14 +227,19 @@ export async function approvePaymentAction(paymentId: string) {
   await requireAdmin();
   await prisma.$transaction(async (tx) => {
     // Only a still-PENDING payment can be approved, so a double click can't
-    // extend the membership twice.
+    // credit the coins twice.
     const payment = await tx.payment.findUnique({ where: { id: paymentId } });
     if (!payment) return;
     const { count } = await tx.payment.updateMany({
       where: { id: paymentId, status: "PENDING" },
       data: { status: "APPROVED", reviewedAt: new Date() },
     });
-    if (count === 1) await extendMembership(tx, payment.userId, payment.days);
+    if (count === 1) {
+      await tx.user.update({
+        where: { id: payment.userId },
+        data: { coinCents: { increment: payment.amount * 100 } },
+      });
+    }
   });
   revalidatePath("/admin/payments");
   revalidatePath("/admin/members");
@@ -197,21 +256,40 @@ export async function rejectPaymentAction(paymentId: string) {
 
 export type AdminFormState = { error?: string; success?: string };
 
-export async function extendMemberAction(
+// Manually add (or with a negative number, remove) coins — e.g. a
+// goodwill credit or a payment received another way.
+export async function adjustCoinsAction(
   userId: string,
   _prev: AdminFormState,
   formData: FormData
 ): Promise<AdminFormState> {
   await requireAdmin();
-  const days = z.coerce.number().int().min(1).max(3650).safeParse(formData.get("days"));
-  if (!days.success) return { error: "จำนวนวันไม่ถูกต้อง" };
+  const coins = z.coerce.number().min(-100_000).max(100_000).safeParse(formData.get("coins"));
+  if (!coins.success || coins.data === 0) return { error: "จำนวนคอยน์ไม่ถูกต้อง" };
+  const delta = Math.round(coins.data * 100);
 
-  const until = await prisma.$transaction((tx) => extendMembership(tx, userId, days.data));
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { coinCents: true } });
+  if (!user) return { error: "ไม่พบสมาชิก" };
+  if (user.coinCents + delta < 0) return { error: "หักเกินยอดคงเหลือไม่ได้" };
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { coinCents: { increment: delta } },
+    select: { coinCents: true },
+  });
   revalidatePath("/admin/members");
-  return { success: `ใช้งานได้ถึง ${until.toLocaleDateString("th-TH", { dateStyle: "medium" })}` };
+  return { success: `ยอดคงเหลือ ${formatCoins(updated.coinCents)} คอยน์` };
 }
 
-const planSchema = z.object({
+// Admin types prices in coins (e.g. "0.3"); stored as hundredths.
+const coinField = (max: number) =>
+  z.coerce
+    .number()
+    .min(0)
+    .max(max)
+    .transform((v) => Math.round(v * 100));
+
+const pricingSchema = z.object({
   promptpayId: z
     .string()
     .trim()
@@ -220,27 +298,33 @@ const planSchema = z.object({
       message: "พร้อมเพย์ต้องเป็นเบอร์มือถือ 10 หลัก เลขบัตร/เลขผู้เสียภาษี 13 หลัก หรือ e-Wallet 15 หลัก",
     }),
   promptpayName: z.string().trim().max(100),
-  planPrice: z.coerce.number().int().min(1).max(100_000),
-  planDays: z.coerce.number().int().min(1).max(3650),
-  trialDays: z.coerce.number().int().min(0).max(365),
+  skinPrice: coinField(1000),
+  noWatermark: coinField(10_000),
+  signupBonus: coinField(10_000),
+  minTopup: z.coerce.number().int().min(1).max(MAX_TOPUP),
 });
 
-export async function updatePlanSettingsAction(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
+export async function updatePricingAction(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
   await requireAdmin();
-  const parsed = planSchema.safeParse({
+  const parsed = pricingSchema.safeParse({
     promptpayId: formData.get("promptpayId"),
     promptpayName: formData.get("promptpayName"),
-    planPrice: formData.get("planPrice"),
-    planDays: formData.get("planDays"),
-    trialDays: formData.get("trialDays"),
+    skinPrice: formData.get("skinPrice"),
+    noWatermark: formData.get("noWatermark"),
+    signupBonus: formData.get("signupBonus"),
+    minTopup: formData.get("minTopup"),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง" };
 
-  await prisma.settings.upsert({
-    where: { id: SETTINGS_ID },
-    update: parsed.data,
-    create: { id: SETTINGS_ID, ...parsed.data },
-  });
+  const data = {
+    promptpayId: parsed.data.promptpayId,
+    promptpayName: parsed.data.promptpayName,
+    skinPriceCents: parsed.data.skinPrice,
+    noWatermarkCents: parsed.data.noWatermark,
+    signupBonusCents: parsed.data.signupBonus,
+    minTopup: parsed.data.minTopup,
+  };
+  await prisma.settings.upsert({ where: { id: SETTINGS_ID }, update: data, create: { id: SETTINGS_ID, ...data } });
   revalidatePath("/", "layout");
   return { success: "บันทึกแล้ว" };
 }

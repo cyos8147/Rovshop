@@ -10,9 +10,10 @@ export async function getSettings() {
       contactUrl: "",
       promptpayId: "",
       promptpayName: "",
-      planPrice: 199,
-      planDays: 30,
-      trialDays: 3,
+      skinPriceCents: 30,
+      noWatermarkCents: 500,
+      signupBonusCents: 0,
+      minTopup: 20,
       updatedAt: new Date(),
     }
   );

@@ -4,7 +4,7 @@ import { AccountCard } from "@/components/AccountCard";
 import { RatingStars } from "@/components/RatingStars";
 import { primaryImage } from "@/lib/images";
 import { getSettings } from "@/lib/settings";
-import { formatTHB } from "@/lib/format";
+import { formatCoins } from "@/lib/coins";
 import { SKIN_TIER_COLORS, SKIN_TIER_LABELS, type SkinTier } from "@/lib/types";
 
 // Decorative tiles for the hero mock-up of a banner.
@@ -23,7 +23,7 @@ export default async function HomePage() {
     prisma.skin.count(),
   ]);
 
-  const price = formatTHB(settings.planPrice);
+  const c = (cents: number) => formatCoins(cents);
 
   return (
     <div>
@@ -31,11 +31,9 @@ export default async function HomePage() {
       <section className="bg-hero-gradient">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
           <div>
-            {settings.trialDays > 0 ? (
-              <p className="inline-block rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold-soft">
-                ทดลองใช้ฟรี {settings.trialDays} วัน · สมัครด้วยอีเมล
-              </p>
-            ) : null}
+            <p className="inline-block rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold-soft">
+              จัดฟรี · จ่ายเมื่อดาวน์โหลด · ไม่มีรายเดือน
+            </p>
             <h1 className="mt-4 text-4xl font-black leading-tight text-ink sm:text-5xl">
               ทำป้ายขายไอดี
               <br />
@@ -58,7 +56,7 @@ export default async function HomePage() {
             <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink-muted">
               <li>• {skinCount.toLocaleString("th-TH")} สกินในคลัง</li>
               <li>• 4 ธีมป้าย</li>
-              <li>• ทำได้ไม่จำกัด</li>
+              <li>• {c(settings.skinPriceCents)} คอยน์/สกิน</li>
             </ul>
           </div>
 
@@ -123,37 +121,41 @@ export default async function HomePage() {
 
       {/* Pricing */}
       <section id="pricing" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-14">
-        <h2 className="text-center text-2xl font-bold text-ink">ราคา</h2>
-        <p className="mt-2 text-center text-sm text-ink-muted">ชำระด้วยพร้อมเพย์ อัปโหลดสลิป เปิดใช้งานทันที ไม่ตัดเงินอัตโนมัติ</p>
-        <div className="mx-auto mt-8 grid max-w-3xl gap-4 sm:grid-cols-2">
-          {settings.trialDays > 0 ? (
-            <div className="card p-6">
-              <p className="font-semibold text-ink">ทดลองใช้</p>
-              <p className="mt-2 text-4xl font-black text-ink">ฟรี</p>
-              <p className="text-sm text-ink-muted">{settings.trialDays} วัน</p>
-              <ul className="mt-4 space-y-1 text-sm text-ink-muted">
-                <li>✓ ใช้ได้ทุกฟีเจอร์</li>
-                <li>✓ สมัครด้วยอีเมล ไม่ต้องใช้บัตร</li>
-                <li>✓ 1 สิทธิ์ต่ออุปกรณ์</li>
-              </ul>
-              <Link href="/register?callbackUrl=%2Fsort" className="btn-secondary mt-6 block">
-                เริ่มทดลองใช้ฟรี
-              </Link>
+        <h2 className="text-2xl font-bold text-ink sm:text-3xl">จ่ายเมื่อดาวน์โหลด ไม่มีรายเดือน</h2>
+        <p className="mt-2 text-sm text-ink-muted">
+          จัดเรียงจนพอใจก่อนแล้วค่อยจ่าย ราคาคิดตามจำนวนสกินในภาพ · 1 บาท = 1 คอยน์ เติมผ่านพร้อมเพย์ขั้นต่ำ{" "}
+          {settings.minTopup} บาท
+        </p>
+        <div className="card mt-8 grid overflow-hidden p-0 sm:grid-cols-2">
+          {[
+            { price: "ฟรี", label: "เลือกสกิน จัดเรียง และดูตัวอย่าง" },
+            { price: `${c(settings.skinPriceCents)} คอยน์`, label: "ROV · ต่อสกิน", gold: true },
+            { price: "ฟรี", label: "ตกแต่งป้าย (ธีม ข้อความ ราคา ช่องทางติดต่อ)" },
+            {
+              price: `+${c(settings.noWatermarkCents)} คอยน์`,
+              label: "ไม่มีลายน้ำ OSCAR · แสดงราคาก่อนชำระทุกครั้ง",
+            },
+            { price: "ฟรี", label: "ดาวน์โหลดซ้ำป้ายเดิม" },
+            settings.signupBonusCents > 0
+              ? { price: `${c(settings.signupBonusCents)} คอยน์`, label: "แจกฟรีเมื่อสมัครสมาชิก", gold: true }
+              : { price: "ไม่หมดอายุ", label: "คอยน์ที่เติมไว้ใช้ได้ตลอด" },
+          ].map((item, i) => (
+            <div
+              key={i}
+              className="border-b border-violet-soft/20 p-6 last:border-b-0 sm:[&:nth-child(odd)]:border-r sm:[&:nth-last-child(-n+2)]:border-b-0"
+            >
+              <p className={`text-2xl font-bold ${item.gold ? "text-gold" : "text-ink"}`}>{item.price}</p>
+              <p className="mt-1 text-sm text-ink-muted">{item.label}</p>
             </div>
-          ) : null}
-          <div className="card border-gold p-6 shadow-goldGlow">
-            <p className="font-semibold text-gold">รายเดือน</p>
-            <p className="mt-2 text-4xl font-black text-ink">{price}</p>
-            <p className="text-sm text-ink-muted">ต่อ {settings.planDays} วัน</p>
-            <ul className="mt-4 space-y-1 text-sm text-ink-muted">
-              <li>✓ ทำป้ายและดาวน์โหลดไม่จำกัด</li>
-              <li>✓ ไม่มีลายน้ำตัวอย่าง</li>
-              <li>✓ จ่ายล่วงหน้าได้ วันที่เหลือบวกต่อให้</li>
-            </ul>
-            <Link href="/account" className="btn-primary mt-6 block">
-              สมัครรายเดือน
-            </Link>
-          </div>
+          ))}
+        </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link href="/sort" className="btn-primary px-6">
+            เริ่มจัดป้ายฟรี →
+          </Link>
+          <Link href="/account" className="btn-secondary px-6">
+            เติมคอยน์
+          </Link>
         </div>
       </section>
 

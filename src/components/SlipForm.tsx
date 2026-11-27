@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { submitSlipAction, type SlipState } from "@/lib/actions/membership";
 
-export function SlipForm() {
+export function SlipForm({ amount }: { amount: number }) {
   const [state, formAction, pending] = useActionState<SlipState, FormData>(submitSlipAction, {});
 
   return (
@@ -17,7 +17,8 @@ export function SlipForm() {
       {state.pending ? (
         <p className="rounded-lg bg-gold/10 px-3 py-2 text-sm text-gold">{state.pending}</p>
       ) : null}
-      <label className="mb-1 block text-sm text-ink-muted">อัปโหลดสลิปโอนเงิน</label>
+      <input type="hidden" name="amount" value={amount} />
+      <label className="mb-1 block text-sm text-ink-muted">อัปโหลดสลิปโอนเงิน {amount} บาท</label>
       <input type="file" name="slip" required accept="image/jpeg,image/png,image/webp" className="input" />
       <button type="submit" disabled={pending} className="btn-primary w-full">
         {pending ? "กำลังตรวจสอบสลิป..." : "ส่งสลิป"}

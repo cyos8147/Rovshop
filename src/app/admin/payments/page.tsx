@@ -35,7 +35,7 @@ export default async function AdminPaymentsPage() {
       <div>
         <h1 className="text-2xl font-bold text-ink">การชำระเงิน</h1>
         <p className="mt-1 text-sm text-ink-muted">
-          สลิปที่ตรวจอัตโนมัติผ่านจะอนุมัติเองทันที รายการด้านล่างคือสลิปที่ต้องตรวจด้วยตัวเอง (เทียบกับแอปธนาคาร)
+          สลิปเติมคอยน์ที่ตรวจอัตโนมัติผ่านจะเติมให้ทันที รายการด้านล่างคือสลิปที่ต้องตรวจด้วยตัวเอง (เทียบกับแอปธนาคาร)
         </p>
       </div>
 
@@ -57,7 +57,7 @@ export default async function AdminPaymentsPage() {
               <div className="min-w-0 flex-1 space-y-1 text-sm">
                 <p className="font-medium text-ink">{p.user.email}</p>
                 <p className="text-ink-muted">
-                  {formatTHB(p.amount)} · {p.days} วัน · ส่งเมื่อ {dateTime(p.createdAt)}
+                  {formatTHB(p.amount)} → {p.amount} คอยน์ · ส่งเมื่อ {dateTime(p.createdAt)}
                 </p>
                 {p.note ? <p className="text-xs text-ink-muted">{p.note}</p> : null}
               </div>

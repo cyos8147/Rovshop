@@ -23,7 +23,7 @@ export default async function LoginPage({
       <p className="mt-4 text-center text-sm text-ink-muted">
         ยังไม่มีบัญชี?{" "}
         <Link href={`/register?callbackUrl=${encodeURIComponent(callbackUrl === "/account" ? "/sort" : callbackUrl)}`} className="text-gold hover:underline">
-          สมัครและทดลองใช้ฟรี
+          สมัครสมาชิก
         </Link>
       </p>
     </div>

@@ -73,8 +73,8 @@ export type BannerOptions = {
   showNames: boolean;
   fontFamily: string;
   watermark: BannerWatermark | null;
-  // Visitors without an active trial/plan get a tiled "ตัวอย่าง" overlay so
-  // the on-screen preview can't simply be screenshotted instead of paying.
+  // Until a banner is paid for, the on-screen copy gets a tiled "ตัวอย่าง"
+  // overlay so the preview can't simply be screenshotted instead of paying.
   preview: boolean;
 };
 

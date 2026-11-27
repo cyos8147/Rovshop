@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { chargeDownloadAction } from "@/lib/actions/membership";
 import {
   BANNER_THEMES,
   renderBanner,
@@ -68,24 +69,30 @@ function tierColor(tier: string) {
   return SKIN_TIER_COLORS[tier as SkinTier] ?? SKIN_TIER_COLORS.NORMAL;
 }
 
-export type SorterAccess = {
-  state: "guest" | "trial" | "paid" | "expired" | "admin";
-  daysLeft: number;
-  trialDays: number;
-  planPrice: number;
-  planDays: number;
+export type SorterWallet = {
+  state: "guest" | "member" | "admin";
+  balanceCents: number;
+  skinPriceCents: number;
+  noWatermarkCents: number;
+  signupBonusCents: number;
 };
+
+const PAID_KEY_STORAGE = "oscar:paid-banners:v1";
+
+function coins(cents: number) {
+  return (cents / 100).toLocaleString("th-TH", { maximumFractionDigits: 2 });
+}
 
 export function SkinSorter({
   heroes,
   initialInfo,
   watermark,
-  access,
+  wallet,
 }: {
   heroes: SorterHero[];
   initialInfo?: Partial<BannerInfo>;
   watermark: BannerWatermark;
-  access: SorterAccess;
+  wallet: SorterWallet;
 }) {
   // Flat lookup of every skin with its hero name attached.
   const skinById = useMemo(() => {
@@ -433,7 +440,7 @@ export function SkinSorter({
           setShowNames={setShowNames}
           skins={ordered}
           watermark={watermark}
-          access={access}
+          wallet={wallet}
         />
       ) : null}
 
@@ -530,7 +537,7 @@ function BannerStep({
   setShowNames,
   skins,
   watermark,
-  access,
+  wallet,
 }: {
   info: BannerInfo;
   setInfo: (info: BannerInfo) => void;
@@ -540,16 +547,55 @@ function BannerStep({
   setShowNames: (value: boolean) => void;
   skins: BannerSkin[];
   watermark: BannerWatermark;
-  access: SorterAccess;
+  wallet: SorterWallet;
 }) {
-  const unlocked = access.state === "trial" || access.state === "paid" || access.state === "admin";
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [rendering, setRendering] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [noWatermark, setNoWatermark] = useState(false);
+  const [balance, setBalance] = useState(wallet.balanceCents);
+  const [paidKeys, setPaidKeys] = useState<string[]>([]);
   const renderId = useRef(0);
 
+  // A banner that was already paid for can be downloaded/shared again for
+  // free, as long as nothing on it changed.
+  const bannerKey = useMemo(
+    () => JSON.stringify({ ids: skins.map((s) => s.id), info, theme, showNames, noWatermark }),
+    [skins, info, theme, showNames, noWatermark]
+  );
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PAID_KEY_STORAGE);
+      if (raw) setPaidKeys(JSON.parse(raw));
+    } catch {
+      // storage unavailable — worst case a re-download is charged again
+    }
+  }, []);
+  const isAdmin = wallet.state === "admin";
+  const isPaid = isAdmin || paidKeys.includes(bannerKey);
+  const costCents = skins.length * wallet.skinPriceCents + (noWatermark ? wallet.noWatermarkCents : 0);
+  const canAfford = balance >= costCents;
+
+  const bannerOptions = useCallback(
+    (preview: boolean) => ({
+      info,
+      skins,
+      theme,
+      showNames,
+      // next/font registers Kanit under a generated family name; read it
+      // back from the page so the canvas uses the same Thai font.
+      fontFamily: getComputedStyle(document.body).fontFamily || "sans-serif",
+      watermark: noWatermark ? null : watermark,
+      preview,
+    }),
+    [info, skins, theme, showNames, noWatermark, watermark]
+  );
+
   // Re-render (debounced) whenever anything on the banner changes. A newer
-  // render supersedes older ones still waiting on images.
+  // render supersedes older ones still waiting on images. Until this exact
+  // banner is paid for, the on-screen copy carries the "ตัวอย่าง" overlay.
   useEffect(() => {
     const id = ++renderId.current;
     setRendering(true);
@@ -559,19 +605,8 @@ function BannerStep({
       try {
         await document.fonts.ready;
         if (id !== renderId.current) return;
-        // next/font registers Kanit under a generated family name; read it
-        // back from the page so the canvas uses the same Thai font.
-        const fontFamily = getComputedStyle(document.body).fontFamily || "sans-serif";
         const offscreen = document.createElement("canvas");
-        await renderBanner(offscreen, {
-          info,
-          skins,
-          theme,
-          showNames,
-          fontFamily,
-          watermark,
-          preview: !unlocked,
-        });
+        await renderBanner(offscreen, bannerOptions(!isPaid));
         if (id !== renderId.current) return;
         canvas.width = offscreen.width;
         canvas.height = offscreen.height;
@@ -584,25 +619,48 @@ function BannerStep({
       }
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [info, skins, theme, showNames, watermark, unlocked]);
+  }, [bannerOptions, isPaid]);
 
-  const toBlob = () =>
-    new Promise<Blob | null>((resolve) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return resolve(null);
+  // Charges the wallet once per distinct banner, then renders a clean copy.
+  const paidBlob = async (): Promise<Blob | null> => {
+    setError(null);
+    setNotice(null);
+    if (!isPaid) {
+      const result = await chargeDownloadAction(
+        skins.map((s) => s.id),
+        noWatermark
+      );
+      if (!result.ok) {
+        if (result.balanceCents !== undefined) setBalance(result.balanceCents);
+        if (result.reason === "login") window.location.href = "/login?callbackUrl=%2Fsort";
+        setError(result.message);
+        return null;
+      }
+      setBalance(result.balanceCents);
+      const next = [bannerKey, ...paidKeys].slice(0, 30);
+      setPaidKeys(next);
       try {
-        canvas.toBlob((blob) => resolve(blob), "image/png");
+        window.localStorage.setItem(PAID_KEY_STORAGE, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      if (result.costCents > 0) setNotice(`ชำระ ${coins(result.costCents)} คอยน์แล้ว`);
+    }
+    const out = document.createElement("canvas");
+    await renderBanner(out, bannerOptions(false));
+    return new Promise((resolve) => {
+      try {
+        out.toBlob((blob) => resolve(blob), "image/png");
       } catch {
         // A cross-origin image without CORS headers taints the canvas.
         resolve(null);
       }
     });
+  };
 
-  const fileName = () => `rov-skins-${skins.length}-${Date.now()}.png`;
+  const fileName = () => `oscar-skins-${skins.length}-${Date.now()}.png`;
 
-  const download = async () => {
-    const blob = await toBlob();
-    if (!blob) return setError("ดาวน์โหลดไม่สำเร็จ (รูปสกินบางรูปไม่อนุญาตให้ส่งออก)");
+  const saveBlob = (blob: Blob) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -611,18 +669,38 @@ function BannerStep({
     window.setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
+  const download = async () => {
+    setBusy(true);
+    try {
+      const blob = await paidBlob();
+      if (blob) saveBlob(blob);
+      else setError((e) => e ?? "ดาวน์โหลดไม่สำเร็จ (รูปสกินบางรูปไม่อนุญาตให้ส่งออก)");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const share = async () => {
-    const blob = await toBlob();
-    if (!blob) return setError("แชร์ไม่สำเร็จ");
-    const file = new File([blob], fileName(), { type: "image/png" });
-    if (navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: info.title || "ขายไอดี RoV" });
-      } catch {
-        // User closed the share sheet.
+    setBusy(true);
+    try {
+      const blob = await paidBlob();
+      if (!blob) return;
+      const file = new File([blob], fileName(), { type: "image/png" });
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: info.title || "ขายไอดี RoV" });
+        } catch (e) {
+          // Safari drops the "user tapped" permission while we waited for
+          // the payment — the banner is paid now, so a second tap works.
+          if (e instanceof DOMException && e.name === "NotAllowedError") {
+            setNotice("ชำระแล้ว — กด “แชร์” อีกครั้งเพื่อเปิดเมนูแชร์");
+          }
+        }
+      } else {
+        saveBlob(blob);
       }
-    } else {
-      await download();
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -671,7 +749,7 @@ function BannerStep({
         </div>
 
         <div className="card space-y-3 p-4">
-          <h2 className="font-semibold text-ink">ธีม</h2>
+          <h2 className="font-semibold text-ink">ตกแต่ง (ฟรี)</h2>
           <div className="grid grid-cols-4 gap-2">
             {(Object.keys(BANNER_THEMES) as BannerThemeKey[]).map((key) => {
               const t = BANNER_THEMES[key];
@@ -693,37 +771,67 @@ function BannerStep({
               );
             })}
           </div>
-          <label className="flex items-center gap-2 text-sm text-ink-muted">
-            <input
-              type="checkbox"
-              checked={showNames}
-              onChange={(e) => setShowNames(e.target.checked)}
-              className="accent-[#e8b64a]"
-            />
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" checked={showNames} onChange={(e) => setShowNames(e.target.checked)} />
             แสดงชื่อสกินบนภาพ
+          </label>
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" checked={noWatermark} onChange={(e) => setNoWatermark(e.target.checked)} />
+            ไม่มีลายน้ำ OSCAR (+{coins(wallet.noWatermarkCents)} คอยน์)
           </label>
         </div>
 
-        {unlocked ? (
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={download} disabled={rendering} className="btn-primary">
-              ดาวน์โหลด PNG
-            </button>
-            <button type="button" onClick={share} disabled={rendering} className="btn-secondary">
-              แชร์
-            </button>
-          </div>
+        {wallet.state === "guest" ? (
+          <GuestPanel wallet={wallet} costCents={costCents} />
         ) : (
-          <UnlockPanel access={access} />
+          <div className="card space-y-3 p-4">
+            <div className="flex items-baseline justify-between gap-2 text-sm">
+              <span className="text-ink-muted">
+                {skins.length} สกิน × {coins(wallet.skinPriceCents)}
+                {noWatermark ? ` + ${coins(wallet.noWatermarkCents)}` : ""}
+              </span>
+              <span className="text-lg font-bold text-gold">
+                {isAdmin ? "ฟรี (แอดมิน)" : isPaid ? "จ่ายแล้ว" : `${coins(costCents)} คอยน์`}
+              </span>
+            </div>
+            {!isAdmin ? (
+              <p className="text-xs text-ink-muted">
+                คอยน์คงเหลือ <span className="font-semibold text-ink">{coins(balance)}</span> ·{" "}
+                <a href="/account" className="text-gold hover:underline">
+                  เติมคอยน์
+                </a>
+              </p>
+            ) : null}
+            {isPaid || canAfford ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={download}
+                  disabled={rendering || busy || skins.length === 0}
+                  className="btn-primary"
+                >
+                  {busy ? "กำลังเตรียม..." : isPaid ? "ดาวน์โหลด" : `ดาวน์โหลด · ${coins(costCents)}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={share}
+                  disabled={rendering || busy || skins.length === 0}
+                  className="btn-secondary"
+                >
+                  แชร์
+                </button>
+              </div>
+            ) : (
+              <a href="/account" className="btn-primary block">
+                คอยน์ไม่พอ — เติมคอยน์
+              </a>
+            )}
+            {!isPaid && !isAdmin ? (
+              <p className="text-center text-xs text-ink-muted">จ่ายครั้งเดียวต่อป้าย ดาวน์โหลดซ้ำป้ายเดิมไม่เสียเพิ่ม</p>
+            ) : null}
+          </div>
         )}
-        {access.state === "trial" ? (
-          <p className="text-center text-xs text-ink-muted">
-            ทดลองใช้ฟรี เหลืออีก {access.daysLeft} วัน ·{" "}
-            <a href="/account" className="text-gold hover:underline">
-              สมัครรายเดือน
-            </a>
-          </p>
-        ) : null}
+        {notice ? <p className="text-sm text-emerald-300">{notice}</p> : null}
         {error ? <p className="text-sm text-rose-300">{error}</p> : null}
       </div>
 
@@ -736,32 +844,27 @@ function BannerStep({
             </span>
           ) : null}
         </div>
+        {!isPaid ? (
+          <p className="mt-2 text-center text-xs text-ink-muted">ภาพตัวอย่าง — ลายน้ำ “ตัวอย่าง” จะหายเมื่อดาวน์โหลด</p>
+        ) : null}
       </div>
     </div>
   );
 }
 
-function UnlockPanel({ access }: { access: SorterAccess }) {
-  const price = `${access.planPrice.toLocaleString("th-TH")} บาท/${access.planDays} วัน`;
-  if (access.state === "expired") {
-    return (
-      <div className="card space-y-3 border-gold/50 p-4 text-center">
-        <p className="font-semibold text-ink">หมดเวลาใช้งานแล้ว</p>
-        <p className="text-sm text-ink-muted">ต่ออายุ {price} เพื่อดาวน์โหลดป้ายแบบไม่มีลายน้ำ ทำได้ไม่จำกัด</p>
-        <a href="/account" className="btn-primary block">
-          ชำระเงินด้วยพร้อมเพย์
-        </a>
-      </div>
-    );
-  }
+function GuestPanel({ wallet, costCents }: { wallet: SorterWallet; costCents: number }) {
   return (
     <div className="card space-y-3 border-gold/50 p-4 text-center">
       <p className="font-semibold text-ink">
-        {access.trialDays > 0 ? `สมัครด้วยอีเมล ทดลองใช้ฟรี ${access.trialDays} วัน` : "สมัครสมาชิกเพื่อดาวน์โหลด"}
+        ป้ายนี้ {coins(costCents)} คอยน์{" "}
+        <span className="text-sm font-normal text-ink-muted">({coins(wallet.skinPriceCents)} คอยน์/สกิน)</span>
       </p>
-      <p className="text-sm text-ink-muted">ป้ายที่ทำไว้ไม่หาย ระบบจำไว้ให้ · หลังทดลองใช้ {price}</p>
+      <p className="text-sm text-ink-muted">
+        สมัครด้วยอีเมลเพื่อดาวน์โหลด
+        {wallet.signupBonusCents > 0 ? ` · รับฟรี ${coins(wallet.signupBonusCents)} คอยน์` : ""} · ป้ายที่ทำไว้ไม่หาย
+      </p>
       <a href="/register?callbackUrl=%2Fsort" className="btn-primary block">
-        {access.trialDays > 0 ? "เริ่มทดลองใช้ฟรี" : "สมัครสมาชิก"}
+        สมัครสมาชิก
       </a>
       <a href="/login?callbackUrl=%2Fsort" className="block text-sm text-gold hover:underline">
         มีบัญชีแล้ว? เข้าสู่ระบบ

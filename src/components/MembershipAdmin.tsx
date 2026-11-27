@@ -45,40 +45,51 @@ export function ReviewButtons({
   );
 }
 
-export function ExtendForm({ action }: { action: FormAction }) {
+export function CoinAdjustForm({ action }: { action: FormAction }) {
   const [state, formAction, pending] = useActionState(action, {});
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-2">
       <input
         type="number"
-        name="days"
-        min={1}
-        max={3650}
-        defaultValue={30}
-        aria-label="จำนวนวัน"
-        className="input w-20 py-1.5"
+        name="coins"
+        step="0.01"
+        defaultValue={10}
+        aria-label="จำนวนคอยน์ (ติดลบเพื่อหัก)"
+        className="input w-24 py-1.5"
       />
       <button type="submit" disabled={pending} className="btn-secondary px-3 py-1.5 text-sm">
-        + เพิ่มวัน
+        ± คอยน์
       </button>
       <Message state={state} />
     </form>
   );
 }
 
-export function PlanSettingsForm({
+const cents = (v: number) => String(v / 100);
+
+export function PricingForm({
   action,
   defaults,
   slipAutoVerify,
 }: {
   action: FormAction;
-  defaults: { promptpayId: string; promptpayName: string; planPrice: number; planDays: number; trialDays: number };
+  defaults: {
+    promptpayId: string;
+    promptpayName: string;
+    skinPriceCents: number;
+    noWatermarkCents: number;
+    signupBonusCents: number;
+    minTopup: number;
+  };
   slipAutoVerify: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   return (
     <form action={formAction} className="card space-y-4 p-5">
-      <h2 className="font-semibold text-ink">แพ็กเกจทำป้ายและการรับเงิน</h2>
+      <div>
+        <h2 className="font-semibold text-ink">ราคาและการรับเงิน (คอยน์)</h2>
+        <p className="mt-1 text-xs text-ink-muted">1 บาท = 1 คอยน์ · เลือก/จัดเรียง/ดูตัวอย่างฟรี จ่ายเฉพาะตอนดาวน์โหลด</p>
+      </div>
       <Message state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -90,16 +101,20 @@ export function PlanSettingsForm({
           <input name="promptpayName" defaultValue={defaults.promptpayName} maxLength={100} className="input" />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-ink-muted">ราคาแพ็กเกจ (บาท)</label>
-          <input type="number" name="planPrice" min={1} required defaultValue={defaults.planPrice} className="input" />
+          <label className="mb-1 block text-sm text-ink-muted">ราคาต่อสกิน (คอยน์)</label>
+          <input type="number" name="skinPrice" step="0.01" min={0} required defaultValue={cents(defaults.skinPriceCents)} className="input" />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-ink-muted">จำนวนวันต่อแพ็กเกจ</label>
-          <input type="number" name="planDays" min={1} required defaultValue={defaults.planDays} className="input" />
+          <label className="mb-1 block text-sm text-ink-muted">ค่าบริการแบบไม่มีลายน้ำ (คอยน์/ป้าย)</label>
+          <input type="number" name="noWatermark" step="0.01" min={0} required defaultValue={cents(defaults.noWatermarkCents)} className="input" />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-ink-muted">ทดลองใช้ฟรี (วัน, 0 = ปิด)</label>
-          <input type="number" name="trialDays" min={0} required defaultValue={defaults.trialDays} className="input" />
+          <label className="mb-1 block text-sm text-ink-muted">คอยน์ฟรีตอนสมัคร (0 = ไม่แจก)</label>
+          <input type="number" name="signupBonus" step="0.01" min={0} required defaultValue={cents(defaults.signupBonusCents)} className="input" />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-ink-muted">เติมขั้นต่ำ (บาท)</label>
+          <input type="number" name="minTopup" min={1} required defaultValue={defaults.minTopup} className="input" />
         </div>
       </div>
       <p className="text-xs text-ink-muted">

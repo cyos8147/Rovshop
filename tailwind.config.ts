@@ -5,19 +5,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Neutral blue-black surfaces so violet and gold stay accents.
         bg: {
-          DEFAULT: "#09061a",
-          soft: "#100b22",
+          DEFAULT: "#0b0b13",
+          soft: "#12121b",
         },
-        card: "#15102a",
+        card: "#171722",
         border: {
-          DEFAULT: "#2b2148",
+          DEFAULT: "#2a2a38",
         },
-        // "gold" is the brand accent token; it is violet now (name kept so
-        // existing classes keep working).
+        // Gold = actions and prices. Violet (below) = the OSCAR brand colour.
         gold: {
-          DEFAULT: "#8f6bff",
-          soft: "#c4b3ff",
+          DEFAULT: "#e8b64a",
+          soft: "#f5d78e",
         },
         violet: {
           DEFAULT: "#6d4df2",
@@ -35,7 +35,7 @@ const config: Config = {
       },
       boxShadow: {
         glow: "0 0 24px rgba(124, 92, 255, 0.25)",
-        goldGlow: "0 0 24px rgba(143, 107, 255, 0.25)",
+        goldGlow: "0 0 24px rgba(232, 182, 74, 0.25)",
       },
       backgroundImage: {
         "hero-gradient":

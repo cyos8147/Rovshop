@@ -1,6 +1,5 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { LogoImage } from "@/components/Logo";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
@@ -127,9 +126,9 @@ export default async function HomePage() {
               <polygon points="760,0 1200,0 1200,300" fill="url(#shardB)" />
               <polygon points="430,700 780,330 1000,700" fill="url(#shardB)" />
               <polygon points="1000,700 1200,420 1200,700" fill="url(#shardA)" />
-              <polyline points="560,0 900,260 1200,520" fill="none" stroke="#e8b64a" strokeOpacity="0.55" strokeWidth="1.5" />
+              <polyline points="560,0 900,260 1200,520" fill="none" stroke="#c4b3ff" strokeOpacity="0.55" strokeWidth="1.5" />
               <polyline points="430,700 780,330 1200,0" fill="none" stroke="#a78bfa" strokeOpacity="0.35" strokeWidth="1" />
-              <polyline points="1000,700 1200,420" fill="none" stroke="#e8b64a" strokeOpacity="0.4" strokeWidth="1" />
+              <polyline points="1000,700 1200,420" fill="none" stroke="#c4b3ff" strokeOpacity="0.4" strokeWidth="1" />
             </svg>
           )}
           {/* curved edge into the next section */}
@@ -140,16 +139,16 @@ export default async function HomePage() {
 
         <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 pb-20 pt-12 sm:pt-16 md:grid-cols-[1fr_1fr]">
           <div>
-            <LogoImage />
-            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.3em] text-gold-soft">RoV · Arena of Valor</p>
-            <h1 className="mt-3 text-3xl font-black leading-tight text-ink sm:text-4xl">
-              ทำป้ายสกิน RoV
-              <span className="block bg-gradient-to-r from-gold-soft to-gold bg-clip-text text-transparent">
-                เสร็จในไม่กี่นาที
-              </span>
+            <h1 className="font-display font-extrabold uppercase leading-none text-white">
+              <span className="block text-5xl tracking-[0.14em] sm:text-6xl">Oscar</span>
+              <span className="mt-3 block text-xl font-medium tracking-[0.3em] text-ink/80 sm:text-2xl">Gaming Images</span>
             </h1>
+            <p className="mt-5 text-lg font-bold text-ink sm:text-xl">
+              ทำป้ายสกิน RoV <span className="text-gold-soft">เสร็จในไม่กี่นาที</span>
+            </p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.3em] text-ink-muted">RoV · Arena of Valor</p>
             <p className="mt-4 max-w-md text-ink-muted">
-              เลือกสกินที่มี เลือกพื้นหลัง ใส่ข้อมูลไอดี แล้วได้ภาพเดียวพร้อมโพสต์ สวย คมชัด ไม่ต้องใช้โปรแกรมแต่งภาพ
+              ค้นหาง่าย ภาพคมชัด เลือกสกินที่มี เลือกพื้นหลัง ใส่ข้อมูลไอดี แล้วได้ภาพเดียวพร้อมโพสต์ ไม่ต้องใช้โปรแกรมแต่งภาพ
               ใช้ได้ทั้งมือถือและคอม
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
@@ -174,6 +173,9 @@ export default async function HomePage() {
             </ul>
           </div>
 
+          {heroArt ? (
+            <div aria-hidden className="hidden min-h-[22rem] md:block" />
+          ) : (
           <div aria-hidden className="relative mx-auto w-full max-w-md py-4 md:max-w-none md:px-4">
             <div className="rounded-3xl border border-violet/40 bg-[#14122c] p-4 shadow-[0_28px_48px_-16px_rgba(0,0,0,0.8)]">
               <div className="flex items-start justify-between gap-3">
@@ -210,10 +212,11 @@ export default async function HomePage() {
                 ทำป้ายที่ <span className="font-black text-gold">OSCAR</span> Gaming images
               </p>
             </div>
-            <div className="absolute -bottom-1 right-8 rotate-2 rounded-full bg-gradient-to-r from-gold-soft to-gold px-4 py-2 text-xs font-black text-[#2a1b05] shadow-[0_10px_18px_-8px_rgba(0,0,0,0.8)]">
+            <div className="absolute -bottom-1 right-8 rotate-2 rounded-full bg-gradient-to-r from-[#a186ff] to-gold px-4 py-2 text-xs font-black text-white shadow-[0_10px_18px_-8px_rgba(0,0,0,0.8)]">
               พร้อมโพสต์ขาย
             </div>
           </div>
+          )}
         </div>
       </section>
 
@@ -242,6 +245,27 @@ export default async function HomePage() {
           })}
         </ol>
       </section>
+
+      {/* Latest skin pictures */}
+      {tileSkins.length > 0 ? (
+        <section className="mx-auto max-w-6xl px-4 pb-10">
+          <div className="flex items-end justify-between gap-2">
+            <h2 className="text-2xl font-bold text-ink">สกินล่าสุด</h2>
+            <Link href="/sort" className="text-sm text-gold-soft hover:underline">
+              ดูทั้งหมด →
+            </Link>
+          </div>
+          <ul className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-6">
+            {tileSkins.slice(0, 6).map((skin) => (
+              <li key={skin.id} className="overflow-hidden rounded-xl border border-border bg-card">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={skin.imageUrl ?? ""} alt={skin.name} className="aspect-[4/5] w-full object-cover" />
+                <p className="truncate px-2 py-1.5 text-xs text-ink-muted">{skin.name}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {/* RoV heroes in the library */}
       {heroes.length > 0 ? (

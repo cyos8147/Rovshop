@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Kanit } from "next/font/google";
+import { Kanit, Montserrat } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Header } from "@/components/Header";
@@ -10,6 +10,13 @@ const kanit = Kanit({
   subsets: ["thai", "latin"],
   weight: ["300", "400", "500", "600", "700"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+const display = Montserrat({
+  subsets: ["latin"],
+  weight: ["500", "600", "800"],
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -24,7 +31,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="th" className={kanit.variable}>
+    <html lang="th" className={`${kanit.variable} ${display.variable}`}>
       <body className="min-h-screen bg-bg font-sans text-ink antialiased">
         <Providers>
           <div className="flex min-h-screen flex-col">

@@ -8,7 +8,7 @@
   }
 
   body {
-    background-color: #0a0a14;
+    background-color: #09061a;
   }
 
   ::selection {
@@ -20,7 +20,7 @@
     height: 10px;
   }
   ::-webkit-scrollbar-track {
-    background: #0a0a14;
+    background: #09061a;
   }
   ::-webkit-scrollbar-thumb {
     background: #2a2a40;
@@ -54,7 +54,7 @@
     @apply w-full rounded-xl border border-border bg-bg-soft px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-violet focus:outline-none;
   }
   .btn-primary {
-    @apply rounded-xl bg-gold px-4 py-2.5 text-center font-semibold text-bg transition hover:bg-gold-soft disabled:cursor-not-allowed disabled:opacity-60;
+    @apply rounded-xl bg-gold px-4 py-2.5 text-center font-semibold text-white transition hover:bg-[#a186ff] disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-secondary {
     @apply rounded-xl border border-border px-4 py-2.5 text-center font-semibold text-ink transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60;

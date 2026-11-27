@@ -9,6 +9,7 @@ import { maskPromptPayId, parsePromptPayId, promptPayPayload } from "@/lib/promp
 import { formatCoins, MAX_TOPUP, TOPUP_PRESETS } from "@/lib/coins";
 import { SlipForm } from "@/components/SlipForm";
 import { SignOutButton } from "@/components/SignOutButton";
+import { BuyPlanForm } from "@/components/BuyPlanForm";
 import { PAYMENT_STATUS_LABELS, type PaymentStatus } from "@/lib/types";
 
 export const metadata: Metadata = { title: "เติมคอยน์" };
@@ -47,6 +48,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   const target = parsePromptPayId(settings.promptpayId);
   const qr = target ? await QRCode.toDataURL(promptPayPayload(target, amount), { margin: 1, width: 320 }) : null;
   const skinsPerTopup = Math.floor((amount * 100) / Math.max(1, settings.skinPriceCents));
+  const planActive = user.paidUntil && user.paidUntil.getTime() > Date.now();
+  const planUntilText = user.paidUntil?.toLocaleDateString("th-TH", { dateStyle: "long" });
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
@@ -69,6 +72,29 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           ไปทำป้าย →
         </Link>
       </div>
+
+      {settings.planPrice > 0 ? (
+        <div className={`card mt-4 flex flex-wrap items-center justify-between gap-4 p-5 ${planActive ? "border-emerald-400/50" : "border-gold/40"}`}>
+          <div className="min-w-0">
+            <p className="font-semibold text-ink">
+              รายเดือน ดาวน์โหลดไม่จำกัด{" "}
+              <span className="text-gold">
+                {settings.planPrice} คอยน์ / {settings.planDays} วัน
+              </span>
+            </p>
+            <p className="text-sm text-ink-muted">
+              {planActive
+                ? `ใช้งานอยู่ ถึง ${planUntilText} · ต่ออายุล่วงหน้าได้ วันจะบวกต่อให้`
+                : "ทุกป้ายฟรี รวมแบบไม่มีลายน้ำ เหมาะกับร้านที่ทำป้ายทุกวัน"}
+            </p>
+          </div>
+          <div className="w-full sm:w-56">
+            <BuyPlanForm
+              label={planActive ? `ต่ออายุ (${settings.planPrice} คอยน์)` : `สมัครรายเดือน (${settings.planPrice} คอยน์)`}
+            />
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-6 md:grid-cols-2">
         <div className="card p-5">
@@ -155,7 +181,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
               <div key={d.id} className="card flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
                 <span className="text-ink-muted">{thaiDateTime(d.createdAt)}</span>
                 <span className="text-ink">{d.skinCount} สกิน</span>
-                <span className="text-rose-200">-{formatCoins(d.costCents)} คอยน์</span>
+                <span className={d.costCents === 0 ? "text-emerald-300" : "text-rose-200"}>
+                  {d.costCents === 0 ? "รายเดือน" : `-${formatCoins(d.costCents)} คอยน์`}
+                </span>
               </div>
             ))}
             {user.downloads.length === 0 ? <p className="text-sm text-ink-muted">ยังไม่มีรายการ</p> : null}

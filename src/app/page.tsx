@@ -32,7 +32,7 @@ export default async function HomePage() {
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
           <div>
             <p className="inline-block rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold-soft">
-              จัดฟรี · จ่ายเมื่อดาวน์โหลด · ไม่มีรายเดือน
+              จัดฟรี · จ่ายเมื่อดาวน์โหลด · หรือรายเดือนไม่จำกัด
             </p>
             <h1 className="mt-4 text-4xl font-black leading-tight text-ink sm:text-5xl">
               ทำป้ายขายไอดี
@@ -121,10 +121,9 @@ export default async function HomePage() {
 
       {/* Pricing */}
       <section id="pricing" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-14">
-        <h2 className="text-2xl font-bold text-ink sm:text-3xl">จ่ายเมื่อดาวน์โหลด ไม่มีรายเดือน</h2>
+        <h2 className="text-2xl font-bold text-ink sm:text-3xl">จ่ายเมื่อดาวน์โหลด หรือรายเดือนไม่จำกัด</h2>
         <p className="mt-2 text-sm text-ink-muted">
-          จัดเรียงจนพอใจก่อนแล้วค่อยจ่าย ราคาคิดตามจำนวนสกินในภาพ · 1 บาท = 1 คอยน์ เติมผ่านพร้อมเพย์ขั้นต่ำ{" "}
-          {settings.minTopup} บาท
+          จัดเรียงจนพอใจก่อนแล้วค่อยจ่าย ราคาคิดตามจำนวนสกินในภาพ · ร้านที่ทำป้ายทุกวันเลือกรายเดือนคุ้มกว่า
         </p>
         <div className="card mt-8 grid overflow-hidden p-0 sm:grid-cols-2">
           {[
@@ -136,9 +135,13 @@ export default async function HomePage() {
               label: "ไม่มีลายน้ำ OSCAR · แสดงราคาก่อนชำระทุกครั้ง",
             },
             { price: "ฟรี", label: "ดาวน์โหลดซ้ำป้ายเดิม" },
+            ...(settings.planPrice > 0
+              ? [{ price: `${settings.planPrice} คอยน์`, label: `รายเดือน ${settings.planDays} วัน · ดาวน์โหลดไม่จำกัด รวมไม่มีลายน้ำ`, gold: true }]
+              : []),
             settings.signupBonusCents > 0
               ? { price: `${c(settings.signupBonusCents)} คอยน์`, label: "แจกฟรีเมื่อสมัครสมาชิก", gold: true }
               : { price: "ไม่หมดอายุ", label: "คอยน์ที่เติมไว้ใช้ได้ตลอด" },
+            { price: "1 บาท = 1 คอยน์", label: `เติมผ่านพร้อมเพย์ ขั้นต่ำ ${settings.minTopup} บาท` },
           ].map((item, i) => (
             <div
               key={i}

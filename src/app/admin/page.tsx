@@ -19,8 +19,9 @@ export default async function AdminDashboardPage() {
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
-  const [memberCount, pendingPayments, monthRevenue, monthDownloads, coinsOutstanding] = await Promise.all([
+  const [memberCount, activePlans, pendingPayments, monthRevenue, monthDownloads, coinsOutstanding] = await Promise.all([
     prisma.user.count({ where: { role: "MEMBER" } }),
+    prisma.user.count({ where: { role: "MEMBER", paidUntil: { gt: new Date() } } }),
     prisma.payment.count({ where: { status: "PENDING" } }),
     prisma.payment.aggregate({
       where: { status: "APPROVED", reviewedAt: { gte: monthStart } },
@@ -53,6 +54,7 @@ export default async function AdminDashboardPage() {
           { label: "ดาวน์โหลดเดือนนี้", value: monthDownloads._count.toLocaleString("th-TH") },
           { label: "คอยน์ที่ใช้เดือนนี้", value: formatCoins(monthDownloads._sum.costCents ?? 0) },
           { label: "สมาชิกทั้งหมด", value: memberCount.toLocaleString("th-TH") },
+          { label: "รายเดือนที่ใช้งานอยู่", value: activePlans.toLocaleString("th-TH") },
           { label: "สลิปรอตรวจ", value: pendingPayments.toLocaleString("th-TH") },
           { label: "คอยน์คงค้างของสมาชิก", value: formatCoins(coinsOutstanding._sum.coinCents ?? 0) },
         ].map((stat) => (

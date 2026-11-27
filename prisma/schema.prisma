@@ -23,6 +23,8 @@ model User {
   // Banner-tool wallet (role MEMBER), in hundredths of a coin so prices
   // like 0.3 coin/skin stay exact integers. 1 coin = 1 THB.
   coinCents    Int        @default(0)
+  // Monthly plan (bought with coins): downloads are free while in the future.
+  paidUntil    DateTime?
   payments     Payment[]
   downloads    Download[]
   createdAt    DateTime   @default(now())
@@ -120,6 +122,9 @@ model Settings {
   noWatermarkCents Int      @default(500)
   signupBonusCents Int      @default(0)
   minTopup         Int      @default(20)
+  // Monthly unlimited plan, paid with coins. planPrice 0 = plan not offered.
+  planPrice        Int      @default(199)
+  planDays         Int      @default(30)
   updatedAt        DateTime @updatedAt
 }
 

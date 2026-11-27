@@ -30,6 +30,8 @@ export default async function AdminSettingsPage() {
             noWatermarkCents: settings.noWatermarkCents,
             signupBonusCents: settings.signupBonusCents,
             minTopup: settings.minTopup,
+            planPrice: settings.planPrice,
+            planDays: settings.planDays,
           }}
         />
       </div>

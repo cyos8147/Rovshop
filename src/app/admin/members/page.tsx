@@ -14,7 +14,14 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
     where: { role: "MEMBER", ...(query ? { email: { contains: query, mode: "insensitive" } } : {}) },
     orderBy: { createdAt: "desc" },
     take: 100,
-    select: { id: true, email: true, coinCents: true, createdAt: true, _count: { select: { downloads: true } } },
+    select: {
+      id: true,
+      email: true,
+      coinCents: true,
+      paidUntil: true,
+      createdAt: true,
+      _count: { select: { downloads: true } },
+    },
   });
 
   return (
@@ -40,6 +47,11 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
                 สมัคร {m.createdAt.toLocaleDateString("th-TH", { dateStyle: "medium" })} · ดาวน์โหลด {m._count.downloads} ครั้ง
               </p>
             </div>
+            {m.paidUntil && m.paidUntil.getTime() > Date.now() ? (
+              <span className="text-emerald-300">
+                รายเดือนถึง {m.paidUntil.toLocaleDateString("th-TH", { dateStyle: "medium" })}
+              </span>
+            ) : null}
             <span className="font-semibold text-gold">{formatCoins(m.coinCents)} คอยน์</span>
             <CoinAdjustForm action={adjustCoinsAction.bind(null, m.id)} />
           </div>

@@ -80,6 +80,8 @@ export function PricingForm({
     noWatermarkCents: number;
     signupBonusCents: number;
     minTopup: number;
+    planPrice: number;
+    planDays: number;
   };
   slipAutoVerify: boolean;
 }) {
@@ -115,6 +117,14 @@ export function PricingForm({
         <div>
           <label className="mb-1 block text-sm text-ink-muted">เติมขั้นต่ำ (บาท)</label>
           <input type="number" name="minTopup" min={1} required defaultValue={defaults.minTopup} className="input" />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-ink-muted">ราคารายเดือน (คอยน์, 0 = ปิด)</label>
+          <input type="number" name="planPrice" min={0} required defaultValue={defaults.planPrice} className="input" />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-ink-muted">จำนวนวันต่อรายเดือน</label>
+          <input type="number" name="planDays" min={1} required defaultValue={defaults.planDays} className="input" />
         </div>
       </div>
       <p className="text-xs text-ink-muted">

@@ -75,6 +75,8 @@ export type SorterWallet = {
   skinPriceCents: number;
   noWatermarkCents: number;
   signupBonusCents: number;
+  planUntil: string | null;
+  planPrice: number;
 };
 
 const PAID_KEY_STORAGE = "oscar:paid-banners:v1";
@@ -574,7 +576,9 @@ function BannerStep({
     }
   }, []);
   const isAdmin = wallet.state === "admin";
-  const isPaid = isAdmin || paidKeys.includes(bannerKey);
+  const onPlan = Boolean(wallet.planUntil);
+  const alreadyPaid = paidKeys.includes(bannerKey);
+  const isPaid = isAdmin || onPlan || alreadyPaid;
   const costCents = skins.length * wallet.skinPriceCents + (noWatermark ? wallet.noWatermarkCents : 0);
   const canAfford = balance >= costCents;
 
@@ -625,10 +629,13 @@ function BannerStep({
   const paidBlob = async (): Promise<Blob | null> => {
     setError(null);
     setNotice(null);
-    if (!isPaid) {
+    // Plan members still go through the server: it re-checks the plan is
+    // active and logs the (free) download.
+    if (!isAdmin && !alreadyPaid) {
       const result = await chargeDownloadAction(
         skins.map((s) => s.id),
-        noWatermark
+        noWatermark,
+        onPlan
       );
       if (!result.ok) {
         if (result.balanceCents !== undefined) setBalance(result.balanceCents);
@@ -777,7 +784,7 @@ function BannerStep({
           </label>
           <label className="flex items-center gap-2 text-sm text-ink">
             <input type="checkbox" checked={noWatermark} onChange={(e) => setNoWatermark(e.target.checked)} />
-            ไม่มีลายน้ำ OSCAR (+{coins(wallet.noWatermarkCents)} คอยน์)
+            ไม่มีลายน้ำ OSCAR {onPlan ? "(ฟรี รายเดือน)" : `(+${coins(wallet.noWatermarkCents)} คอยน์)`}
           </label>
         </div>
 
@@ -791,10 +798,16 @@ function BannerStep({
                 {noWatermark ? ` + ${coins(wallet.noWatermarkCents)}` : ""}
               </span>
               <span className="text-lg font-bold text-gold">
-                {isAdmin ? "ฟรี (แอดมิน)" : isPaid ? "จ่ายแล้ว" : `${coins(costCents)} คอยน์`}
+                {isAdmin ? "ฟรี (แอดมิน)" : onPlan ? "ฟรี (รายเดือน)" : isPaid ? "จ่ายแล้ว" : `${coins(costCents)} คอยน์`}
               </span>
             </div>
-            {!isAdmin ? (
+            {onPlan ? (
+              <p className="text-xs text-emerald-300">
+                รายเดือนใช้ได้ถึง {new Date(wallet.planUntil!).toLocaleDateString("th-TH", { dateStyle: "medium" })} ·
+                ดาวน์โหลดไม่จำกัด
+              </p>
+            ) : null}
+            {!isAdmin && !onPlan ? (
               <p className="text-xs text-ink-muted">
                 คอยน์คงเหลือ <span className="font-semibold text-ink">{coins(balance)}</span> ·{" "}
                 <a href="/account" className="text-gold hover:underline">
@@ -827,7 +840,17 @@ function BannerStep({
               </a>
             )}
             {!isPaid && !isAdmin ? (
-              <p className="text-center text-xs text-ink-muted">จ่ายครั้งเดียวต่อป้าย ดาวน์โหลดซ้ำป้ายเดิมไม่เสียเพิ่ม</p>
+              <p className="text-center text-xs text-ink-muted">
+                จ่ายครั้งเดียวต่อป้าย ดาวน์โหลดซ้ำป้ายเดิมไม่เสียเพิ่ม
+                {wallet.planPrice > 0 ? (
+                  <>
+                    {" "}· ทำบ่อย?{" "}
+                    <a href="/account" className="text-gold hover:underline">
+                      รายเดือน {wallet.planPrice} คอยน์ ไม่จำกัด
+                    </a>
+                  </>
+                ) : null}
+              </p>
             ) : null}
           </div>
         )}

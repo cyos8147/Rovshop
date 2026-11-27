@@ -14,6 +14,8 @@ export async function getSettings() {
       noWatermarkCents: 500,
       signupBonusCents: 0,
       minTopup: 20,
+      planPrice: 199,
+      planDays: 30,
       updatedAt: new Date(),
     }
   );

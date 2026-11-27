@@ -84,6 +84,8 @@ export default async function SortPage({
           skinPriceCents: settings.skinPriceCents,
           noWatermarkCents: settings.noWatermarkCents,
           signupBonusCents: settings.signupBonusCents,
+          planUntil: wallet.state === "member" ? wallet.planUntil : null,
+          planPrice: settings.planPrice,
         }}
       />
     </div>

@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "paidUntil" TIMESTAMP(3);
+
+-- AlterTable
+ALTER TABLE "Settings" ADD COLUMN     "planDays" INTEGER NOT NULL DEFAULT 30,
+ADD COLUMN     "planPrice" INTEGER NOT NULL DEFAULT 199;
+

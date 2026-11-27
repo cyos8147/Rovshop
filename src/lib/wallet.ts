@@ -4,7 +4,7 @@ import { getSession } from "@/lib/auth";
 
 export type Wallet =
   | { state: "guest"; balanceCents: 0 }
-  | { state: "member"; balanceCents: number; email: string }
+  | { state: "member"; balanceCents: number; email: string; planUntil: string | null }
   | { state: "admin"; balanceCents: 0; email: string };
 
 // Read from the database (not the JWT) so a top-up approved a moment ago
@@ -14,9 +14,10 @@ export async function getWallet(): Promise<Wallet> {
   if (!session?.user?.id) return { state: "guest", balanceCents: 0 };
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { role: true, email: true, coinCents: true },
+    select: { role: true, email: true, coinCents: true, paidUntil: true },
   });
   if (!user) return { state: "guest", balanceCents: 0 };
   if (user.role === "ADMIN") return { state: "admin", balanceCents: 0, email: user.email };
-  return { state: "member", balanceCents: user.coinCents, email: user.email };
+  const planUntil = user.paidUntil && user.paidUntil.getTime() > Date.now() ? user.paidUntil.toISOString() : null;
+  return { state: "member", balanceCents: user.coinCents, email: user.email, planUntil };
 }

@@ -15,8 +15,24 @@ export default async function HomePage() {
   return (
     <div>
       {/* Hero */}
-      <section className="bg-hero-gradient">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
+      <section className="bg-hero-gradient relative overflow-hidden">
+        {/* Background: soft glows, a faint grid, and a fade into the page. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-32 top-10 h-96 w-96 rounded-full bg-violet/25 blur-3xl" />
+          <div className="absolute -right-24 top-24 h-[28rem] w-[28rem] rounded-full bg-gold/15 blur-3xl" />
+          <div
+            className="absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage:
+                "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
+              backgroundSize: "44px 44px",
+              maskImage: "radial-gradient(ellipse at 70% 40%, #000 20%, transparent 75%)",
+              WebkitMaskImage: "radial-gradient(ellipse at 70% 40%, #000 20%, transparent 75%)",
+            }}
+          />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-bg to-transparent" />
+        </div>
+        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:py-20 md:grid-cols-[1.05fr_1fr]">
           <div>
             <div className="mb-4">
               <LogoImage />
@@ -50,7 +66,12 @@ export default async function HomePage() {
             </ul>
           </div>
 
-          <div aria-hidden className="card mx-auto w-full max-w-md rotate-1 p-4 shadow-goldGlow">
+          <div aria-hidden className="relative mx-auto w-full max-w-md py-6 md:max-w-none md:px-6">
+            {/* Cards stacked behind the main one */}
+            <div className="card absolute inset-x-8 top-2 bottom-8 -rotate-6 border-violet/30 bg-gradient-to-br from-violet/20 to-card opacity-70 md:inset-x-12" />
+            <div className="card absolute inset-x-10 top-4 bottom-6 rotate-[-2.5deg] border-gold/20 bg-card/80 opacity-80 md:inset-x-14" />
+
+          <div className="card relative z-10 rotate-1 bg-card p-4 shadow-goldGlow">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-lg font-bold text-ink">ขายไอดีเซียน สกินเพียบ</p>
@@ -75,6 +96,19 @@ export default async function HomePage() {
             <p className="mt-3 text-right text-[11px] text-ink-muted">
               ทำป้ายที่ <span className="font-black text-gold">OSCAR</span> Gaming images
             </p>
+          </div>
+
+            {/* Floating badges around the banner */}
+            <div className="absolute -right-1 top-2 z-20 rotate-6 rounded-full border border-gold/50 bg-bg/90 px-3 py-1.5 text-xs font-bold text-gold shadow-goldGlow backdrop-blur sm:-right-3">
+              ✓ ไม่มีลายน้ำ
+            </div>
+            <div className="absolute -left-1 top-1/2 z-20 -rotate-6 rounded-xl border border-violet/50 bg-bg/90 px-3 py-2 text-xs font-semibold text-ink shadow-lg backdrop-blur sm:-left-3">
+              <span className="text-gold">4</span> ขั้นตอน
+              <span className="block text-[10px] font-normal text-ink-muted">เสร็จในไม่กี่นาที</span>
+            </div>
+            <div className="absolute -bottom-1 right-6 z-20 rotate-3 rounded-full bg-gradient-to-r from-gold-soft to-gold px-3.5 py-1.5 text-xs font-black text-[#2a1b05] shadow-goldGlow">
+              พร้อมโพสต์ขาย
+            </div>
           </div>
         </div>
       </section>

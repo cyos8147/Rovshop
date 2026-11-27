@@ -24,3 +24,6 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# OCR engine files, copied by scripts/copy-ocr-assets.js
+/public/ocr/

@@ -258,12 +258,41 @@ export function SkinSorter({
             </div>
           </div>
 
-          {filteredHeroes.map((hero) => {
+          {(() => {
+            const letterOf = (name: string) => (/[A-Z]/i.test(name.charAt(0)) ? name.charAt(0).toUpperCase() : "#");
+            const letters = [...new Set(filteredHeroes.map((h) => letterOf(h.name)))].sort((a, b) =>
+              a === "#" ? 1 : b === "#" ? -1 : a.localeCompare(b)
+            );
+            return letters.length > 1 ? (
+              <nav className="sticky top-[118px] z-20 -mx-1 flex flex-wrap gap-1 bg-bg/95 px-1 py-2 backdrop-blur">
+                {letters.map((l) => (
+                  <a
+                    key={l}
+                    href={`#pick-${l}`}
+                    className="rounded-md border border-border px-2 py-0.5 text-sm text-ink-muted hover:border-gold hover:text-ink"
+                  >
+                    {l}
+                  </a>
+                ))}
+              </nav>
+            ) : null;
+          })()}
+
+          {filteredHeroes.map((hero, index) => {
+            const letterOf = (name: string) => (/[A-Z]/i.test(name.charAt(0)) ? name.charAt(0).toUpperCase() : "#");
+            const letter = letterOf(hero.name);
+            const firstOfLetter = index === 0 || letterOf(filteredHeroes[index - 1].name) !== letter;
             const fullHero = heroes.find((h) => h.id === hero.id)!;
             const picked = fullHero.skins.filter((s) => selectedSet.has(s.id)).length;
             const allOn = picked === fullHero.skins.length;
             return (
               <section key={hero.id}>
+                {firstOfLetter ? (
+                  <h3 id={`pick-${letter}`} className="mb-3 flex scroll-mt-40 items-center gap-3 text-sm font-semibold text-gold-soft">
+                    {letter}
+                    <span className="h-px flex-1 bg-border" />
+                  </h3>
+                ) : null}
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <h2 className="font-semibold text-ink">
                     {hero.name}{" "}

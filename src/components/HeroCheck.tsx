@@ -22,7 +22,15 @@ Arum | 12
 Astrid | 11
 Ata | 8
 Aya | 7
-Azzen'ka | 7`;
+Azzen'ka | 7
+Baldum | 7
+Bijan | 6
+Billow | 3
+Biron | 3
+Bolt Baron | 4
+Bonnie | 5
+Bright | 7
+Butterfly | 29`;
 
 const STORAGE_KEY = "hero-reference-list";
 

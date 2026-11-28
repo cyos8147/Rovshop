@@ -113,8 +113,23 @@ export function detectCards(
   const shaped = rects.filter((r) => r.w / r.h > 0.4 && r.w / r.h < 1.8 && r.w * r.h > W * H * 0.015);
   const gridTop = gridTopScaled === null ? null : Math.round(gridTopScaled / scale);
   if (shaped.length === 0) return { cards: [], gridTop };
-  const ref = shaped.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
-  const cards = shaped.filter((r) => Math.abs(r.w - ref.w) / ref.w < 0.12 && Math.abs(r.h - ref.h) / ref.h < 0.12);
+  const biggest = shaped.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
+  const picked = shaped.filter(
+    (r) => Math.abs(r.w - biggest.w) / biggest.w < 0.12 && Math.abs(r.h - biggest.h) / biggest.h < 0.12
+  );
+  // Snap every card to the grid: all cards share one size (the lower median, so a
+  // scroll bar or a shadow stuck to one card does not make it wider) and the
+  // column / row positions of the cards around it.
+  const lowerMedian = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor((values.length - 1) / 2)];
+  const cw = lowerMedian(picked.map((c) => c.w));
+  const ch = lowerMedian(picked.map((c) => c.h));
+  const ref = { x: biggest.x, y: biggest.y, w: cw, h: ch };
+  const cards = picked.map((c) => ({
+    x: lowerMedian(picked.filter((o) => Math.abs(o.x - c.x) < cw * 0.2).map((o) => o.x)),
+    y: lowerMedian(picked.filter((o) => Math.abs(o.y - c.y) < ch * 0.3).map((o) => o.y)),
+    w: cw,
+    h: ch,
+  }));
 
   cards.sort((a, b) => (Math.abs(a.y - b.y) > ref.h * 0.4 ? a.y - b.y : a.x - b.x));
 

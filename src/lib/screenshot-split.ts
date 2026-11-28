@@ -190,6 +190,31 @@ export function cleanName(read: string): string {
     .trim();
 }
 
+// ---- Same picture twice -----------------------------------------------------
+
+// A tiny fingerprint of a card's picture (8x8 grey, above / below its average),
+// so two cards showing the same artwork can be told apart from different ones.
+export function cardHash(source: CanvasImageSource, card: Rect): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = 8;
+  canvas.height = 8;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return "";
+  // Upper part only: the name at the bottom differs between cards of one hero.
+  ctx.drawImage(source, card.x, card.y, card.w, card.h * 0.6, 0, 0, 8, 8);
+  const d = ctx.getImageData(0, 0, 8, 8).data;
+  const grey: number[] = [];
+  for (let i = 0; i < d.length; i += 4) grey.push(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]);
+  const mean = grey.reduce((a, b) => a + b, 0) / grey.length;
+  return grey.map((v) => (v > mean ? "1" : "0")).join("");
+}
+
+export function hashDistance(a: string, b: string): number {
+  let n = 0;
+  for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] !== b[i]) n++;
+  return n;
+}
+
 // ---- 3. Match names --------------------------------------------------------
 
 const normalize = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "");

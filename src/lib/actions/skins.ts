@@ -7,6 +7,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/uploads";
+import { normalizeSkinName } from "@/lib/skin-name";
 import {
   HERO_ROLES,
   HERO_ROLE_LABELS,
@@ -43,6 +44,14 @@ async function optionalImage(formData: FormData, field = "image"): Promise<strin
   const entry = formData.get(field);
   if (!(entry instanceof File) || entry.size === 0) return null;
   return saveUploadedImage(entry);
+}
+
+// A skin of this hero whose name is the same as `name` apart from case, spaces
+// and punctuation.
+async function findSameNameSkin(heroId: string, name: string) {
+  const wanted = normalizeSkinName(name);
+  const skins = await prisma.skin.findMany({ where: { heroId }, select: { id: true, name: true } });
+  return skins.find((skin) => normalizeSkinName(skin.name) === wanted) ?? null;
 }
 
 function revalidateSkinPages(heroId?: string) {
@@ -132,6 +141,8 @@ export async function createSkinAction(
 
   // A skin is created with its name only. Its picture is added afterwards,
   // on the skin that now exists (row "ใส่รูป" or the screenshot cutter).
+  const same = await findSameNameSkin(heroId, parsed.data.name);
+  if (same) return { error: `มีสกิน "${same.name}" อยู่แล้ว` };
   try {
     await prisma.skin.create({ data: { ...parsed.data, tier: parsed.data.tier ?? "NORMAL", heroId } });
   } catch (error) {
@@ -334,11 +345,8 @@ export async function addHeroSkinAction(_prev: SkinFormState, formData: FormData
     }
   }
 
-  const sameName = await prisma.skin.findFirst({
-    where: { heroId: hero.id, name: { equals: skinParsed.data, mode: "insensitive" } },
-    select: { id: true },
-  });
-  if (sameName) return { error: `${hero.name} มีสกิน "${skinParsed.data}" อยู่แล้ว` };
+  const sameName = await findSameNameSkin(hero.id, skinParsed.data);
+  if (sameName) return { error: `${hero.name} มีสกิน "${sameName.name}" อยู่แล้ว` };
 
   try {
     await prisma.skin.create({ data: { name: skinParsed.data, tier: "NORMAL", heroId: hero.id } });
@@ -375,7 +383,7 @@ export async function setSkinImageAction(skinId: string, formData: FormData): Pr
   }
 }
 
-export type ScreenshotSkinResult = { ok: boolean; status?: "created" | "updated" | "skipped"; heroCreated?: boolean; error?: string };
+export type ScreenshotSkinResult = { ok: boolean; status?: "created" | "skipped"; heroCreated?: boolean; error?: string };
 
 // One card from a screenshot: finds (or creates) the hero by name, then
 // creates the skin with this picture. A skin with the same name is skipped, or
@@ -383,7 +391,6 @@ export type ScreenshotSkinResult = { ok: boolean; status?: "created" | "updated"
 export async function addSkinFromScreenshotAction(
   heroName: string,
   skinName: string,
-  replace: boolean,
   formData: FormData
 ): Promise<ScreenshotSkinResult> {
   await requireAdmin();
@@ -420,27 +427,19 @@ export async function addSkinFromScreenshotAction(
     }
   }
 
-  const existing = await prisma.skin.findFirst({
-    where: { heroId: hero.id, name: { equals: skinParsed.data, mode: "insensitive" } },
-    select: { id: true },
-  });
-  let status: "created" | "updated" | "skipped";
+  // One picture per skin: a skin that is already there is left as it is.
+  const existing = await findSameNameSkin(hero.id, skinParsed.data);
   if (existing) {
-    if (!replace) {
-      revalidateSkinPages(hero.id);
-      return { ok: true, status: "skipped", heroCreated };
-    }
-    await prisma.skin.update({ where: { id: existing.id }, data: { imageUrl } });
-    status = "updated";
-  } else {
-    try {
-      await prisma.skin.create({ data: { name: skinParsed.data, tier: "NORMAL", heroId: hero.id, imageUrl } });
-    } catch (error) {
-      if (isUniqueViolation(error)) return { ok: true, status: "skipped", heroCreated };
-      throw error;
-    }
-    status = "created";
+    revalidateSkinPages(hero.id);
+    return { ok: true, status: "skipped", heroCreated };
   }
+  try {
+    await prisma.skin.create({ data: { name: skinParsed.data, tier: "NORMAL", heroId: hero.id, imageUrl } });
+  } catch (error) {
+    if (isUniqueViolation(error)) return { ok: true, status: "skipped", heroCreated };
+    throw error;
+  }
+  const status = "created" as const;
   revalidateSkinPages(hero.id);
   return { ok: true, status, heroCreated };
 }

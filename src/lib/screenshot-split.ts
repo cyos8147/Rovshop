@@ -117,6 +117,46 @@ export function detectCards(
   const cards = shaped.filter((r) => Math.abs(r.w - ref.w) / ref.w < 0.12 && Math.abs(r.h - ref.h) / ref.h < 0.12);
 
   cards.sort((a, b) => (Math.abs(a.y - b.y) > ref.h * 0.4 ? a.y - b.y : a.x - b.x));
+
+  // Rows after the last full row: a single card, or a card with very dark artwork, can
+  // look "not full" in the row scan. Use the column positions, card size and gap of the
+  // rows above to look for more cards below, and keep a position when most of it has content.
+  const colXs: number[] = [];
+  for (const c of cards) if (!colXs.some((x) => Math.abs(x - c.x) < ref.w * 0.2)) colXs.push(c.x);
+  colXs.sort((a, b) => a - b);
+  const rowYs: number[] = [];
+  for (const c of cards) if (!rowYs.some((y) => Math.abs(y - c.y) < ref.h * 0.3)) rowYs.push(c.y);
+  rowYs.sort((a, b) => a - b);
+  const gap =
+    colXs.length >= 2 ? Math.max(2, colXs[1] - colXs[0] - ref.w) : rowYs.length >= 2 ? Math.max(2, rowYs[1] - rowYs[0] - ref.h) : 6;
+  // The button bar at the bottom of the screen (a block spanning nearly the whole width) ends the card area.
+  const bar = rects.filter((r) => r.w > W * 0.9 && r.y > ref.y).map((r) => r.y);
+  const limit = bar.length ? Math.min(...bar) : H;
+  const coverage = (x: number, y: number) => {
+    let hit = 0;
+    let total = 0;
+    for (let yy = y; yy < Math.min(H, y + ref.h); yy += 2) {
+      for (let xx = x; xx < Math.min(W, x + ref.w); xx += 2) {
+        total++;
+        hit += mask[yy * W + xx];
+      }
+    }
+    return total ? hit / total : 0;
+  };
+  let nextY = rowYs.length ? rowYs[rowYs.length - 1] + ref.h + gap : 0;
+  while (rowYs.length && nextY + ref.h <= limit + 1) {
+    let added = 0;
+    for (const x of colXs) {
+      const taken = cards.some((c) => Math.abs(c.x - x) < ref.w * 0.3 && Math.abs(c.y - nextY) < ref.h * 0.5);
+      if (!taken && coverage(x, nextY) > 0.6) {
+        cards.push({ x, y: nextY, w: ref.w, h: ref.h });
+        added++;
+      }
+    }
+    if (added === 0) break;
+    nextY += ref.h + gap;
+  }
+  cards.sort((a, b) => (Math.abs(a.y - b.y) > ref.h * 0.4 ? a.y - b.y : a.x - b.x));
   const inset = Math.max(1, Math.round(ref.w * 0.006));
   return {
     gridTop,

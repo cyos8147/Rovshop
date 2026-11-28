@@ -260,7 +260,13 @@ export function hashDistance(a: string, b: string): number {
 
 // ---- 3. Match names --------------------------------------------------------
 
-const normalize = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+// Letters that the OCR mixes up are treated as the same when comparing ("Aol" ~ "Aoi").
+const normalize = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .replace(/[l1]/g, "i")
+    .replace(/0/g, "o");
 
 function distance(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, i) => i);
@@ -274,6 +280,14 @@ function distance(a: string, b: string): number {
     }
   }
   return row[b.length];
+}
+
+// 0..1, how alike two whole names are (no partial matching), for hero names.
+export function nameSimilarity(a: string, b: string): number {
+  const x = normalize(a);
+  const y = normalize(b);
+  if (!x || !y) return 0;
+  return 1 - distance(x, y) / Math.max(x.length, y.length);
 }
 
 // 0..1, how well the read text contains the skin name (extra stray text around

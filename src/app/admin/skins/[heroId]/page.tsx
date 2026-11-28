@@ -2,8 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { createSkinAction, deleteHeroAction, deleteSkinAction, updateSkinAction } from "@/lib/actions/skins";
-import { AddSkinForm, DeleteHeroButton, SkinRow } from "@/components/SkinAdmin";
+import {
+  createSkinAction,
+  deleteHeroAction,
+  deleteSkinAction,
+  renameOrMergeHeroAction,
+  updateSkinAction,
+} from "@/lib/actions/skins";
+import { AddSkinForm, DeleteHeroButton, RenameHeroForm, SkinRow } from "@/components/SkinAdmin";
 import { AutoSplitter } from "@/components/AutoSplitter";
 import { ScreenshotCutter } from "@/components/ScreenshotCutter";
 
@@ -31,6 +37,10 @@ export default async function AdminHeroSkinsPage({
     (await prisma.skin.findFirst({ where: { imageUrl: { not: null } }, select: { imageUrl: true } }))?.imageUrl ??
     null;
 
+  const otherHeroes = (
+    await prisma.hero.findMany({ where: { id: { not: hero.id } }, select: { name: true }, orderBy: { name: "asc" } })
+  ).map((h) => h.name);
+
   const missingCount = hero.skins.filter((skin) => !skin.imageUrl).length;
   const skins = hero.skins
     .filter((skin) => !onlyMissing || !skin.imageUrl)
@@ -47,6 +57,13 @@ export default async function AdminHeroSkinsPage({
         </div>
         <DeleteHeroButton action={deleteHeroAction.bind(null, hero.id)} skinCount={skins.length} />
       </div>
+
+      <RenameHeroForm
+        heroId={hero.id}
+        heroName={hero.name}
+        otherHeroes={otherHeroes}
+        action={renameOrMergeHeroAction}
+      />
 
       <AddSkinForm action={createSkinAction.bind(null, hero.id)} heroName={hero.name} />
 

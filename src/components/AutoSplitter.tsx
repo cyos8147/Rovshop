@@ -4,9 +4,12 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useImageSize } from "@/components/ImageCropper";
 import { addSkinFromScreenshotAction, setSkinImageAction } from "@/lib/actions/skins";
+import { normalizeSkinName } from "@/lib/skin-name";
 import {
+  cardHash,
   cleanName,
   detectCards,
+  hashDistance,
   heroStripCanvas,
   matchCards,
   nameStripCanvas,
@@ -26,6 +29,8 @@ type Row = {
   skinId: string;
   newName: string;
   include: boolean;
+  // Index of an earlier card showing the same picture (not used twice).
+  duplicateOf: number | null;
   status: "idle" | "saving" | "ok" | "error";
   note?: string;
 };
@@ -53,12 +58,11 @@ export function AutoSplitter({
   const [progress, setProgress] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [heroInput, setHeroInput] = useState("");
-  const [replaceExisting, setReplaceExisting] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
   const heroName = (fixedHeroName ?? heroInput).trim();
   const skinById = new Map(skins.map((s) => [s.id, s]));
-  const existingNames = new Set(skins.map((s) => s.name.toLowerCase()));
+  const existingNames = new Set(skins.map((s) => normalizeSkinName(s.name)));
 
   const reset = () => {
     if (imageRef.current?.src.startsWith("blob:")) URL.revokeObjectURL(imageRef.current.src);
@@ -109,7 +113,9 @@ export function AutoSplitter({
         skins.map((s) => s.name)
       );
 
+      const hashes = cards.map((card) => cardHash(img, card));
       const built: Row[] = cards.map((card, i) => {
+        const earlier = hashes.slice(0, i).findIndex((h) => h && hashDistance(h, hashes[i]) <= 4);
         const preview = document.createElement("canvas");
         preview.width = 240;
         preview.height = Math.max(1, Math.round((card.h / card.w) * 240));
@@ -122,7 +128,8 @@ export function AutoSplitter({
           read: reads[i],
           skinId: matched ? matched.id : newName.length >= 2 ? NEW : "",
           newName,
-          include: matched ? !matched.hasImage : newName.length >= 2,
+          include: earlier < 0 && (matched ? !matched.hasImage : newName.length >= 2),
+          duplicateOf: earlier >= 0 ? earlier : null,
           status: "idle",
         };
       });
@@ -138,11 +145,18 @@ export function AutoSplitter({
   const update = (index: number, patch: Partial<Row>) =>
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
 
-  const chosen = rows.filter((row) => row.include && row.skinId && (row.skinId !== NEW || row.newName.trim().length >= 2));
-  const keyOf = (row: Row) => (row.skinId === NEW ? `new:${row.newName.trim().toLowerCase()}` : `id:${row.skinId}`);
+  const chosen = rows.filter(
+    (row) =>
+      row.include &&
+      row.duplicateOf === null &&
+      row.skinId &&
+      !skinById.get(row.skinId)?.hasImage &&
+      (row.skinId !== NEW || row.newName.trim().length >= 2)
+  );
+  const keyOf = (row: Row) => (row.skinId === NEW ? `new:${normalizeSkinName(row.newName)}` : `id:${row.skinId}`);
   const keys = chosen.map(keyOf);
   const duplicated = keys.some((key, i) => keys.indexOf(key) !== i);
-  const clashesWithExisting = chosen.some((row) => row.skinId === NEW && existingNames.has(row.newName.trim().toLowerCase()));
+  const clashesWithExisting = chosen.some((row) => row.skinId === NEW && existingNames.has(normalizeSkinName(row.newName)));
   const needsHero = chosen.some((row) => row.skinId === NEW) && heroName.length < 2;
   const blocked = chosen.length === 0 || duplicated || clashesWithExisting || needsHero;
 
@@ -181,12 +195,12 @@ export function AutoSplitter({
       form.append("image", new File([blob], "skin.jpg", { type: "image/jpeg" }));
       try {
         if (row.skinId === NEW) {
-          const result = await addSkinFromScreenshotAction(heroName, row.newName, replaceExisting, form);
+          const result = await addSkinFromScreenshotAction(heroName, row.newName, form);
           if (!result.ok) update(i, { status: "error", note: result.error });
           else if (result.status === "skipped") update(i, { status: "ok", note: "มีสกินชื่อนี้อยู่แล้ว ข้ามไป" });
           else {
-            if (result.status === "created") saved++;
-            update(i, { status: "ok", note: result.status === "updated" ? "เปลี่ยนรูปแล้ว" : "สร้างสกินใหม่แล้ว" });
+            saved++;
+            update(i, { status: "ok", note: "สร้างสกินใหม่แล้ว" });
           }
         } else {
           const result = await setSkinImageAction(row.skinId, form);
@@ -292,7 +306,7 @@ export function AutoSplitter({
                     <option value="">— ข้ามใบนี้ —</option>
                     <option value={NEW}>+ สกินใหม่</option>
                     {skins.map((s) => (
-                      <option key={s.id} value={s.id}>
+                      <option key={s.id} value={s.id} disabled={s.hasImage}>
                         {s.name}
                         {s.hasImage ? " (มีรูปแล้ว)" : ""}
                       </option>
@@ -310,16 +324,21 @@ export function AutoSplitter({
                       placeholder="ชื่อสกิน"
                     />
                   ) : null}
-                  <label className="flex items-center gap-2 text-xs text-ink">
-                    <input
-                      type="checkbox"
-                      checked={row.include && Boolean(row.skinId)}
-                      disabled={!row.skinId || phase !== "review"}
-                      onChange={(event) => update(i, { include: event.target.checked })}
-                    />
-                    {row.skinId === NEW ? "สร้างสกินนี้" : "ใส่รูปนี้"}
-                    {skin?.hasImage ? " (แทนที่รูปเดิม)" : ""}
-                  </label>
+                  {row.duplicateOf !== null ? (
+                    <p className="text-xs text-rose-300">รูปซ้ำกับใบที่ {row.duplicateOf + 1} (ไม่ใส่ซ้ำ)</p>
+                  ) : skin?.hasImage ? (
+                    <p className="text-xs text-ink-muted">สกินนี้มีรูปแล้ว (ไม่ทับรูปเดิม)</p>
+                  ) : (
+                    <label className="flex items-center gap-2 text-xs text-ink">
+                      <input
+                        type="checkbox"
+                        checked={row.include && Boolean(row.skinId)}
+                        disabled={!row.skinId || phase !== "review"}
+                        onChange={(event) => update(i, { include: event.target.checked })}
+                      />
+                      {row.skinId === NEW ? "สร้างสกินนี้" : "ใส่รูปนี้"}
+                    </label>
+                  )}
                   {row.status === "saving" ? <p className="text-xs text-ink-muted">กำลังบันทึก...</p> : null}
                   {row.status === "ok" ? <p className="text-xs text-emerald-300">{row.note}</p> : null}
                   {row.status === "error" ? <p className="text-xs text-rose-300">{row.note}</p> : null}
@@ -336,12 +355,6 @@ export function AutoSplitter({
 
           {phase === "review" ? (
             <div className="space-y-3">
-              {!fixedHeroName ? (
-                <label className="flex items-center gap-2 text-sm text-ink">
-                  <input type="checkbox" checked={replaceExisting} onChange={(event) => setReplaceExisting(event.target.checked)} />
-                  ถ้ามีสกินชื่อนี้อยู่แล้ว ให้เปลี่ยนรูปเดิม (ไม่ติ๊ก = ข้ามไป)
-                </label>
-              ) : null}
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={saveAll} disabled={blocked} className="btn-primary">
                   บันทึก {chosen.length} สกิน

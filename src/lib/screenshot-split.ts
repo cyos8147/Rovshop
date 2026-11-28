@@ -216,6 +216,8 @@ export function cleanName(read: string): string {
   return read
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/[^A-Za-z0-9 :'.-]+/g, " ")
+    // The curly apostrophe is sometimes read as two marks (X''mas): keep one.
+    .replace(/'{2,}/g, "'")
     // In these Title Case names a word that starts with a small "l" is an "I" (Idol, Ice ...)
     .replace(/(^|\s)l(?=[a-z]{3,})/g, "$1I")
     .replace(/\s+/g, " ")

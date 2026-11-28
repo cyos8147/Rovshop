@@ -86,6 +86,12 @@ export default async function AdminSkinsPage({ searchParams }: { searchParams: P
         </p>
       ) : null}
 
+      <p className="text-sm">
+        <Link href="/admin/skins/check" className="text-gold-soft hover:underline">
+          ตรวจกับรายการอ้างอิง (ฮีโร่ขาด เกิน หรือจำนวนสกินไม่ตรง)
+        </Link>
+      </p>
+
       <AutoSplitter skins={[]} refUrl={refUrl} heroNames={allHeroNames} library={library} />
 
       <AddHeroSkinForm action={addHeroSkinAction} />

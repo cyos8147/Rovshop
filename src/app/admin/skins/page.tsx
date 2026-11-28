@@ -44,6 +44,12 @@ export default async function AdminSkinsPage({ searchParams }: { searchParams: P
     prisma.skin.groupBy({ by: ["heroId"], where: { imageUrl: null }, _count: { _all: true } }),
   ]);
   const missing = new Map(missingByHero.map((row) => [row.heroId, row._count._all]));
+  const groups = [...heroes.reduce((map, hero) => {
+    const first = hero.name.trim().charAt(0).toUpperCase();
+    const letter = /[A-Z]/.test(first) ? first : "#";
+    map.set(letter, [...(map.get(letter) ?? []), hero]);
+    return map;
+  }, new Map<string, typeof heroes>())].sort(([a], [b]) => (a === "#" ? 1 : b === "#" ? -1 : a.localeCompare(b)));
   const totalSkins = heroes.reduce((sum, hero) => sum + hero._count.skins, 0);
   const totalMissing = [...missing.values()].reduce((sum, n) => sum + n, 0);
 
@@ -103,8 +109,25 @@ export default async function AdminSkinsPage({ searchParams }: { searchParams: P
         </div>
       </details>
 
-      <div className="grid gap-2 sm:grid-cols-2">
-        {heroes.map((hero) => (
+      {/* Heroes grouped by first letter, with a jump bar */}
+      {groups.length > 1 ? (
+        <nav className="sticky top-[71px] z-20 -mx-1 flex flex-wrap gap-1 bg-bg/95 px-1 py-2 backdrop-blur">
+          {groups.map(([letter]) => (
+            <a key={letter} href={`#letter-${letter}`} className="rounded-md border border-border px-2 py-0.5 text-sm text-ink-muted hover:border-gold hover:text-ink">
+              {letter}
+            </a>
+          ))}
+        </nav>
+      ) : null}
+      {groups.map(([letter, list]) => (
+        <section key={letter} id={`letter-${letter}`} className="scroll-mt-32 space-y-2">
+          <h2 className="flex items-center gap-3 text-sm font-semibold text-gold-soft">
+            {letter}
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-xs font-normal text-ink-muted">{list.length} ฮีโร่</span>
+          </h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {list.map((hero) => (
           <Link
             key={hero.id}
             href={`/admin/skins/${hero.id}`}
@@ -125,8 +148,10 @@ export default async function AdminSkinsPage({ searchParams }: { searchParams: P
             </div>
             <span className="text-sm text-ink-muted">จัดการ →</span>
           </Link>
-        ))}
-      </div>
+            ))}
+          </div>
+        </section>
+      ))}
       {heroes.length === 0 ? (
         <p className="py-6 text-center text-ink-muted">{query ? "ไม่พบฮีโร่หรือสกินที่ค้นหา" : "ยังไม่มีฮีโร่ในระบบ"}</p>
       ) : null}

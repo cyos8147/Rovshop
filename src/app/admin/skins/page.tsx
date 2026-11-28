@@ -15,15 +15,14 @@ export default async function AdminSkinsPage({ searchParams }: { searchParams: P
   const refUrl = (await prisma.skin.findFirst({ where: { imageUrl: { not: null } }, select: { imageUrl: true } }))?.imageUrl ?? null;
 
   const libraryRows = await prisma.skin.findMany({
-    where: { imageUrl: { not: null } },
     select: { id: true, name: true, imageUrl: true, imageHash: true, hero: { select: { name: true } } },
-    take: 1500,
+    take: 3000,
   });
   const library = libraryRows.map((s) => ({
     id: s.id,
     name: s.name,
     heroName: s.hero.name,
-    imageUrl: s.imageUrl ?? "",
+    imageUrl: s.imageUrl,
     imageHash: s.imageHash,
   }));
   const allHeroNames = (await prisma.hero.findMany({ select: { name: true }, orderBy: { name: "asc" } })).map((h) => h.name);

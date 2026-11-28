@@ -69,9 +69,13 @@ export default async function AdminHeroSkinsPage({
 
       <AutoSplitter
         heroName={hero.name}
-        library={hero.skins
-          .filter((skin) => skin.imageUrl)
-          .map((skin) => ({ id: skin.id, name: skin.name, heroName: hero.name, imageUrl: skin.imageUrl ?? "", imageHash: skin.imageHash }))}
+        library={hero.skins.map((skin) => ({
+          id: skin.id,
+          name: skin.name,
+          heroName: hero.name,
+          imageUrl: skin.imageUrl,
+          imageHash: skin.imageHash,
+        }))}
         refUrl={refUrl}
         skins={[...hero.skins]
           .sort((a, b) => a.name.localeCompare(b.name))

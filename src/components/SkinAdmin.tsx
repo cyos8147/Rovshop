@@ -141,9 +141,9 @@ export function SkinRow({
       <form action={formAction} className="flex flex-wrap items-center gap-3">
         {skin.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={skin.imageUrl} alt="" className="h-14 w-14 rounded-lg object-cover" />
+          <img src={skin.imageUrl} alt="" className="h-16 w-[45px] rounded-lg object-cover" />
         ) : (
-          <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-border text-xs text-ink-muted">
+          <div className="flex h-16 w-[45px] items-center justify-center rounded-lg border border-dashed border-border text-xs text-ink-muted">
             ไม่มีรูป
           </div>
         )}

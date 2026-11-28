@@ -414,7 +414,7 @@ export function DetailsStep({
           </select>
         </label>
         <Check checked={design.showNames} onChange={(v) => setDesign((d) => ({ ...d, showNames: v }))}>
-          แสดงชื่อสกินบนภาพ
+          เขียนชื่อสกินทับบนภาพ (ปิดไว้ถ้ารูปมีชื่อติดอยู่แล้ว)
         </Check>
       </Section>
     </Layout>

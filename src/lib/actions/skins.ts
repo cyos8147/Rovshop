@@ -526,3 +526,49 @@ export async function fixSkinAction(skinId: string, heroName: string, skinName: 
   revalidateSkinPages(hero.id);
   return { ok: true, status: "fixed", heroRemoved };
 }
+
+export type MergeHeroResult = { ok: boolean; error?: string; merged?: boolean; moved?: number; removed?: number; heroId?: string };
+
+// Renames a hero. When another hero already has that name the two are merged:
+// the skins move to that hero, and a skin whose name is already there is not
+// duplicated (the copy with a picture is kept). The emptied hero is removed.
+export async function renameOrMergeHeroAction(heroId: string, newName: string): Promise<MergeHeroResult> {
+  await requireAdmin();
+
+  const parsed = heroSchema.shape.name.safeParse(newName.replace(/\s+/g, " ").trim());
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "ชื่อฮีโร่ไม่ถูกต้อง" };
+
+  const source = await prisma.hero.findUnique({ where: { id: heroId }, include: { skins: true } });
+  if (!source) return { ok: false, error: "ไม่พบฮีโร่นี้แล้ว" };
+
+  const target = await prisma.hero.findFirst({
+    where: { name: { equals: parsed.data, mode: "insensitive" } },
+    include: { skins: true },
+  });
+
+  if (!target || target.id === source.id) {
+    await prisma.hero.update({ where: { id: source.id }, data: { name: parsed.data } });
+    revalidateSkinPages(source.id);
+    return { ok: true, merged: false, heroId: source.id };
+  }
+
+  let moved = 0;
+  let removed = 0;
+  for (const skin of source.skins) {
+    const same = target.skins.find((t) => normalizeSkinName(t.name) === normalizeSkinName(skin.name));
+    if (!same) {
+      await prisma.skin.update({ where: { id: skin.id }, data: { heroId: target.id } });
+      moved++;
+      continue;
+    }
+    // Already there: keep one copy, preferring the one that has a picture.
+    if (!same.imageUrl && skin.imageUrl) {
+      await prisma.skin.update({ where: { id: same.id }, data: { imageUrl: skin.imageUrl, imageHash: skin.imageHash } });
+    }
+    await prisma.skin.delete({ where: { id: skin.id } });
+    removed++;
+  }
+  await prisma.hero.delete({ where: { id: source.id } });
+  revalidateSkinPages(target.id);
+  return { ok: true, merged: true, moved, removed, heroId: target.id };
+}

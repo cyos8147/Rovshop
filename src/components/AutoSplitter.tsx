@@ -14,6 +14,7 @@ import {
   heroStripCanvas,
   matchCards,
   nameScore,
+  nameSimilarity,
   nameStripCanvas,
   readNames,
   type Rect,
@@ -181,7 +182,7 @@ export function AutoSplitter({
         let bestName = "";
         let bestScore = 0.7;
         for (const name of names) {
-          const score = nameScore(guess, name);
+          const score = nameSimilarity(guess, name);
           if (score >= bestScore) {
             bestScore = score;
             bestName = name;
@@ -191,7 +192,14 @@ export function AutoSplitter({
       };
       // The known game heroes come first: a hero entered wrongly earlier must not win.
       const snap = (guess: string) => closest(guess, ROV_HERO_NAMES) || closest(guess, heroNames) || guess;
-      const rawGuesses = plan.map((p) => (p.heroAt >= 0 ? cleanName(reads[p.heroAt] ?? "") : ""));
+      // A reading that looks like a skin name (several words, or the same as a card's
+      // name) is not a hero name: the strip was cut from the wrong place.
+      const rawGuesses = plan.map((p) => {
+        const guess = p.heroAt >= 0 ? cleanName(reads[p.heroAt] ?? "") : "";
+        const cardNames = p.cardAt.map((at) => reads[at] ?? "");
+        const looksLikeSkin = guess.split(" ").length > 2 || cardNames.some((name) => nameScore(guess, name) >= 0.6);
+        return looksLikeSkin ? "" : guess;
+      });
       // A picture whose header could not be read takes the most common reading of the others.
       const common = rawGuesses
         .filter((g) => g.length >= 3)

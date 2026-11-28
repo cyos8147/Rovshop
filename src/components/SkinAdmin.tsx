@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { CroppedImageInput } from "@/components/CroppedImageInput";
 import type { SkinFormState } from "@/lib/actions/skins";
@@ -190,5 +191,78 @@ export function DeleteHeroButton({ action, skinCount }: { action: () => Promise<
         ลบฮีโร่นี้
       </button>
     </form>
+  );
+}
+
+// Rename a hero, or merge it into another one by typing that hero's name.
+export function RenameHeroForm({
+  heroId,
+  heroName,
+  otherHeroes,
+  action,
+}: {
+  heroId: string;
+  heroName: string;
+  otherHeroes: string[];
+  action: (heroId: string, name: string) => Promise<{ ok: boolean; error?: string; merged?: boolean; moved?: number; removed?: number; heroId?: string }>;
+}) {
+  const router = useRouter();
+  const [name, setName] = useState(heroName);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+
+  const targets = new Set(otherHeroes.map((h) => h.toLowerCase()));
+  const willMerge = targets.has(name.trim().toLowerCase()) && name.trim().toLowerCase() !== heroName.toLowerCase();
+
+  const submit = async () => {
+    if (willMerge && !window.confirm(`รวมสกินทั้งหมดของ "${heroName}" เข้ากับ "${name.trim()}" แล้วลบ "${heroName}" ออก?`)) return;
+    setBusy(true);
+    setMessage(null);
+    const result = await action(heroId, name);
+    setBusy(false);
+    if (!result.ok) {
+      setMessage({ kind: "error", text: result.error ?? "ไม่สำเร็จ" });
+      return;
+    }
+    if (result.merged && result.heroId) {
+      router.push(`/admin/skins/${result.heroId}`);
+      return;
+    }
+    setMessage({ kind: "ok", text: "เปลี่ยนชื่อแล้ว" });
+    router.refresh();
+  };
+
+  return (
+    <div className="card space-y-2 p-4">
+      <h2 className="font-semibold text-ink">เปลี่ยนชื่อ หรือรวมกับฮีโร่อื่น</h2>
+      <p className="text-xs text-ink-muted">
+        ถ้าฮีโร่ถูกสร้างซ้ำหรือชื่อผิด พิมพ์ชื่อที่ถูกต้อง ถ้ามีฮีโร่ชื่อนั้นอยู่แล้ว ระบบจะย้ายสกินทั้งหมดไปรวมกัน (สกินชื่อซ้ำเก็บไว้ใบเดียว ใบที่มีรูปจะถูกเก็บ) แล้วลบฮีโร่นี้
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          list="merge-hero-names"
+          maxLength={60}
+          className="input min-w-48 flex-1"
+        />
+        <datalist id="merge-hero-names">
+          {otherHeroes.map((h) => (
+            <option key={h} value={h} />
+          ))}
+        </datalist>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={busy || name.trim().length < 1 || name.trim() === heroName}
+          className="btn-secondary px-4 py-2 text-sm"
+        >
+          {busy ? "..." : willMerge ? "รวมเข้ากับฮีโร่นี้" : "เปลี่ยนชื่อ"}
+        </button>
+      </div>
+      {message ? (
+        <p className={`text-xs ${message.kind === "ok" ? "text-emerald-300" : "text-rose-300"}`}>{message.text}</p>
+      ) : null}
+    </div>
   );
 }

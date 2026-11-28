@@ -20,7 +20,6 @@ import {
   detectCards,
   hashDistance,
   heroStripCanvas,
-  matchCards,
   nameScore,
   nameSimilarity,
   nameStripCanvas,
@@ -34,6 +33,34 @@ type SplitSkin = { id: string; name: string; hasImage: boolean };
 export type LibrarySkin = { id: string; name: string; heroName: string; imageUrl: string | null; imageHash: string | null };
 
 const NEW = "__new__";
+
+// The name already saved is kept when a new reading is only a misread of it:
+// look-alike letters (Fel / Fei), punctuation, or an incomplete reading that is
+// part of the saved name ("Rockstar" for "Rockstar: Idol").
+function keepsSavedName(saved: string, read: string, readUnsure: boolean) {
+  if (!saved || !read) return false;
+  return (
+    normalizeSkinName(saved) === normalizeSkinName(read) ||
+    nameSimilarity(saved, read) === 1 ||
+    (readUnsure && !VERSIONED.test(saved) && nameScore(saved, read) >= 0.95)
+  );
+}
+// The name a saved skin should have, given the name read from its card (which shows
+// only the base name; the level is on the badge, cardEvo, "" when unreadable).
+function nameForSavedSkin(saved: string, read: string, readUnsure: boolean, cardEvo: string) {
+  const evo = saved.match(/^(.*?)\s+(EVO(?:\s+(?:I|II|III|IV|V))?)(?:\s+\(\d+\))?$/i);
+  const numbered = saved.match(/^(.*?)\s+\(\d+\)$/);
+  const base = evo ? evo[1] : numbered ? numbered[1] : saved;
+  const level = evo ? evo[2].toUpperCase().replace(/\s+/g, " ") : "";
+  if (!read || keepsSavedName(base, read, readUnsure)) {
+    // Same skin name: only a level read from the badge can change it.
+    return cardEvo && (level || numbered) && cardEvo !== level ? `${base} ${cardEvo}` : saved;
+  }
+  return [read, cardEvo || level].filter(Boolean).join(" ");
+}
+
+// "… EVO IV", "… EVO", "… (2)": one level of a skin, never a fuller form of a reading.
+const VERSIONED = /\s+(EVO(\s+(I|II|III|IV|V))?|\(\d+\))(\s+\(\d+\))?$/i;
 const MAX_FILES = 12;
 
 type Row = {
@@ -264,10 +291,6 @@ export function AutoSplitter({
       const badges: string[] = [];
       loaded.forEach(({ img, cards }, imageIndex) => {
         const cardReads = plan[imageIndex].cardAt.map((at) => reads[at] ?? "");
-        const matches = matchCards(
-          cardReads,
-          skins.map((s) => s.name)
-        );
         cards.forEach((card, i) => {
           const hash = cardHash(img, card);
           const badge = badgeHash(img, card);
@@ -299,25 +322,10 @@ export function AutoSplitter({
             if (scored[0] && scored[0].d <= 8 && (!scored[1] || scored[1].d - scored[0].d >= 6)) libId = scored[0].id;
           }
 
-          let matched: { id: string; name: string; hasImage: boolean } | null = !libId && matches[i] >= 0 ? skins[matches[i]] : null;
-          let newName = matched ? "" : cleanName(cardReads[i]);
-          // A skin of this hero with the same name already exists: this card replaces its picture.
-          if (!libId && !matched && newName.length >= 2) {
-            const sameName = library.find(
-              (l) =>
-                normalizeSkinName(l.heroName) === normalizeSkinName(fixedHeroName ?? heroGuesses[imageIndex]) &&
-                normalizeSkinName(l.name) === normalizeSkinName(newName)
-            );
-            if (sameName) {
-              matched = { id: sameName.id, name: sameName.name, hasImage: Boolean(sameName.imageUrl) };
-              newName = "";
-            }
-          }
-          const skinId = libId ? "" : matched ? matched.id : newName.length >= 2 ? NEW : "";
-          // A skin found by its name gets this picture unless it already has the same one.
-          const savedHash = matched ? libHashes.get(matched.id) : undefined;
-          const needPicture =
-            Boolean(matched) && (!matched?.hasImage || !savedHash || !hash || hashDistance(savedHash, hash) > 4);
+          // Cards not found by picture start as new skins named from the reading. They are
+          // matched to saved skins by name only after the versions (EVO levels) are named.
+          let newName = cleanName(cardReads[i]);
+          const skinId = libId ? "" : newName.length >= 2 ? NEW : "";
 
           // Same skin as an earlier card of this batch (same hero and name)?
           const nameKey = `${normalizeSkinName(heroGuesses[imageIndex])}:${normalizeSkinName(newName)}`;
@@ -353,6 +361,15 @@ export function AutoSplitter({
           const duplicateOf = pictureDup >= 0 ? pictureDup : variantNote ? -1 : nameDup;
           const lib = libId ? libById.get(libId) : undefined;
           const heroGuess = fixedHeroName ?? heroGuesses[imageIndex];
+          if (lib) {
+            const versioned = VERSIONED.test(lib.name);
+            newName = nameForSavedSkin(
+              lib.name,
+              newName,
+              Boolean(unsureReads[plan[imageIndex].cardAt[i]]),
+              versioned ? evoLevel(img, card) : ""
+            );
+          }
           const fixNeeded =
             Boolean(lib) &&
             newName.length >= 2 &&
@@ -367,7 +384,7 @@ export function AutoSplitter({
             hash,
             libId,
             newName,
-            include: duplicateOf < 0 && (libId ? fixNeeded : matched ? needPicture : newName.length >= 2),
+            include: duplicateOf < 0 && (libId ? fixNeeded : newName.length >= 2),
             duplicateOf: duplicateOf >= 0 ? duplicateOf : null,
             variantOf: variantNote ? nameDup : null,
             unsure: Boolean(unsureReads[plan[imageIndex].cardAt[i]]),
@@ -424,17 +441,24 @@ export function AutoSplitter({
       // A version whose final name is already a skin of this hero (sending the same
       // pictures again) is that skin. Its picture is replaced: the levels share artwork,
       // so an earlier mix-up of names and pictures is put right this way.
+      // Every other new card whose final name is already a skin of this hero is that skin
+      // (exact name; or, for single skins, a misread of the saved name). It gets the card's
+      // picture when it has none or a different one.
+      const usedIds = new Set(built.map((r) => r.libId).filter(Boolean));
       built.forEach((row) => {
-        if (row.skinId !== NEW || row.variantOf === null) return;
+        if (row.skinId !== NEW || row.duplicateOf !== null) return;
         const hero = normalizeSkinName(fixedHeroName ?? heroGuesses[row.imageIndex]);
-        const existing = library.find(
-          (l) => normalizeSkinName(l.heroName) === hero && normalizeSkinName(l.name) === normalizeSkinName(row.newName)
-        );
-        if (existing) {
-          row.skinId = existing.id;
-          row.newName = "";
-          row.include = true;
-        }
+        const own = library.filter((l) => normalizeSkinName(l.heroName) === hero && !usedIds.has(l.id));
+        const existing =
+          own.find((l) => normalizeSkinName(l.name) === normalizeSkinName(row.newName)) ??
+          (row.variantOf === null ? own.find((l) => keepsSavedName(l.name, row.newName, row.unsure)) : undefined);
+        if (!existing) return;
+        usedIds.add(existing.id);
+        const savedHash = libHashes.get(existing.id);
+        row.skinId = existing.id;
+        row.newName = "";
+        row.include =
+          row.variantOf !== null || !existing.imageUrl || !savedHash || !row.hash || hashDistance(savedHash, row.hash) > 4;
       });
       // Cards of a picture of another hero that is not a known hero are left unticked.
       built.forEach((row) => {

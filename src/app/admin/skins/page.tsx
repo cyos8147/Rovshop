@@ -96,6 +96,10 @@ export default async function AdminSkinsPage({ searchParams }: { searchParams: P
         <Link href="/admin/skins/check" className="text-gold-soft hover:underline">
           ตรวจกับรายการอ้างอิง (ฮีโร่ขาด เกิน หรือจำนวนสกินไม่ตรง)
         </Link>
+        {" · "}
+        <Link href="/admin/skins/audit" className="text-gold-soft hover:underline">
+          ตรวจชื่อกับรูป (ชื่อสกินและเลเวล EVO)
+        </Link>
       </p>
 
       <AutoSplitter skins={[]} refUrl={refUrl} heroNames={allHeroNames} library={library} />

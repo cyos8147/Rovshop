@@ -92,6 +92,7 @@ export function AutoSplitter({
   const [progress, setProgress] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [heroInputs, setHeroInputs] = useState<string[]>([]);
+  const [imageNotes, setImageNotes] = useState<{ guessed: boolean; other: string }[]>([]);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
   const libById = new Map(library.map((l) => [l.id, l]));
@@ -109,6 +110,7 @@ export function AutoSplitter({
     imagesRef.current = [];
     setRows([]);
     setHeroInputs([]);
+    setImageNotes([]);
     setDeleteIds(new Set());
     setPhase("idle");
     setProgress("");
@@ -160,7 +162,7 @@ export function AutoSplitter({
       // 2. Read all the names in one OCR run (hero name first, then the cards).
       const strips: HTMLCanvasElement[] = [];
       const plan = loaded.map(({ img, cards, gridTop }) => {
-        const heroStrip = fixedHeroName ? null : heroStripCanvas(img, img.naturalWidth, img.naturalHeight, gridTop);
+        const heroStrip = heroStripCanvas(img, img.naturalWidth, img.naturalHeight, gridTop);
         const heroAt = heroStrip ? strips.push(heroStrip) - 1 : -1;
         const cardAt = cards.map((card) => strips.push(nameStripCanvas(img, card)) - 1);
         return { heroAt, cardAt };
@@ -239,6 +241,20 @@ export function AutoSplitter({
         .filter((g) => g.length >= 3)
         .sort((a, b) => rawGuesses.filter((g) => g === b).length - rawGuesses.filter((g) => g === a).length)[0];
       const heroGuesses = rawGuesses.map((g) => snap(g.length >= 3 ? g : (common ?? g)));
+      // Per picture: the header could not be read (the hero was taken from the other
+      // pictures), or, on a hero's page, the header names a different hero.
+      const notesPerImage = rawGuesses.map((g, k) => ({
+        guessed: !fixedHeroName && g.length < 3 && Boolean(common),
+        // Another hero: the reading is a known hero other than this page's hero, or clearly
+        // a different name ("Ata" on Zata's page counts: both are real heroes).
+        other:
+          fixedHeroName &&
+          g.length >= 3 &&
+          normalizeSkinName(heroGuesses[k]) !== normalizeSkinName(fixedHeroName) &&
+          (Boolean(closest(g, ROV_HERO_NAMES) || closest(g, heroNames)) || nameSimilarity(heroGuesses[k], fixedHeroName) < 0.6)
+            ? heroGuesses[k]
+            : "",
+      }));
       const built: Row[] = [];
       const hashes: string[] = [];
       const badges: string[] = [];
@@ -411,6 +427,11 @@ export function AutoSplitter({
           row.include = false;
         }
       });
+      // Cards of a picture that belongs to another hero are left unticked.
+      built.forEach((row) => {
+        if (notesPerImage[row.imageIndex]?.other) row.include = false;
+      });
+      setImageNotes(notesPerImage);
       setHeroInputs(heroGuesses);
       setRows(built);
       setPhase("review");
@@ -629,6 +650,14 @@ export function AutoSplitter({
                   <h3 className="text-sm font-semibold text-ink">
                     ภาพที่ {imageIndex + 1} <span className="font-normal text-ink-muted">({group.length} ใบ)</span>
                   </h3>
+                  {imageNotes[imageIndex]?.other ? (
+                    <p className="w-full text-xs text-rose-300">
+                      ภาพนี้น่าจะเป็นฮีโร่ {imageNotes[imageIndex].other} ไม่ใช่ {fixedHeroName} จึงไม่ได้ติ๊กไว้ ถ้าจะเพิ่มให้ฮีโร่นั้น ให้ส่งที่หน้าคลังสกิน
+                    </p>
+                  ) : null}
+                  {imageNotes[imageIndex]?.guessed ? (
+                    <p className="w-full text-xs text-gold-soft">อ่านชื่อฮีโร่ในภาพนี้ไม่ได้ จึงใช้ชื่อจากภาพอื่น ตรวจให้แน่ใจว่าใช่ฮีโร่นี้</p>
+                  ) : null}
                   {!fixedHeroName ? (
                     <label className="block w-56">
                       <span className="mb-1 block text-xs text-ink-muted">ชื่อฮีโร่ของภาพนี้ (สร้างให้ถ้ายังไม่มี)</span>

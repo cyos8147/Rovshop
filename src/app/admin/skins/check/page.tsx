@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { renameOrMergeHeroAction } from "@/lib/actions/skins";
+import { deleteHeroesAction, renameOrMergeHeroAction } from "@/lib/actions/skins";
 import { HeroCheck } from "@/components/HeroCheck";
 
 export const metadata: Metadata = { title: "ตรวจกับรายการอ้างอิง" };
@@ -25,6 +25,7 @@ export default async function HeroCheckPage() {
       </div>
       <HeroCheck
         action={renameOrMergeHeroAction}
+        deleteAction={deleteHeroesAction}
         heroes={heroes.map((h) => ({
           id: h.id,
           name: h.name,

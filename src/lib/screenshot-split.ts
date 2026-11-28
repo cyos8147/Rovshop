@@ -88,7 +88,7 @@ export function detectCards(
   const rects: Rect[] = [];
   let gridTopScaled: number | null = null;
   for (const [y0, y1] of runs(rowFlags, 3)) {
-    if (y1 - y0 < H * 0.05) continue;
+    if (y1 - y0 < H * 0.02) continue;
     const colFlags: boolean[] = [];
     for (let x = 0; x < W; x++) {
       let count = 0;
@@ -178,13 +178,41 @@ export function heroStripCanvas(source: CanvasImageSource, naturalW: number, nat
     d[i + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
-  return canvas;
+
+  // Crop to the text itself and scale it to a fixed line height.
+  let minX = outW, maxX = -1, minY = outH, maxY = -1;
+  for (let y = 0; y < outH; y++) {
+    for (let x = 0; x < outW; x++) {
+      if (d[(y * outW + x) * 4] === 0) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0 || maxY - minY < 6) return null;
+  const pad = 14;
+  const textH = maxY - minY + 1;
+  const k = 90 / textH;
+  const line = document.createElement("canvas");
+  line.width = Math.min(1400, Math.round((maxX - minX + 1) * k) + pad * 2);
+  line.height = 90 + pad * 2;
+  const lctx = line.getContext("2d");
+  if (!lctx) return null;
+  lctx.fillStyle = "#fff";
+  lctx.fillRect(0, 0, line.width, line.height);
+  lctx.drawImage(canvas, minX, minY, maxX - minX + 1, textH, pad, pad, line.width - pad * 2, 90);
+  return line;
 }
 
 // Tidies OCR output into a usable name: letters, digits, space and : ' - .
 export function cleanName(read: string): string {
   return read
+    .replace(/[\u2018\u2019]/g, "'")
     .replace(/[^A-Za-z0-9 :'.-]+/g, " ")
+    // In these Title Case names a word that starts with a small "l" is an "I" (Idol, Ice ...)
+    .replace(/(^|\s)l(?=[a-z]{3,})/g, "$1I")
     .replace(/\s+/g, " ")
     .replace(/^[\s:.'-]+|[\s:.'-]+$/g, "")
     .trim();
@@ -272,7 +300,8 @@ export function matchCards(reads: string[], skinNames: string[], minScore = 0.55
 
 export async function readNames(
   strips: HTMLCanvasElement[],
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  singleLine: boolean[] = []
 ): Promise<string[]> {
   const { createWorker } = await import("tesseract.js");
   const worker = await createWorker("eng", 1, {
@@ -283,18 +312,28 @@ export async function readNames(
   });
   try {
     await worker.setParameters({
-      tessedit_pageseg_mode: "6" as never,
-      tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 :'-.",
+      tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 :'\u2019-.",
     });
     const reads: string[] = [];
     for (let i = 0; i < strips.length; i++) {
+      await worker.setParameters({ tessedit_pageseg_mode: (singleLine[i] ? "7" : "6") as never });
       const { data } = await worker.recognize(strips[i], {}, { text: true, blocks: true });
-      // Drop low-confidence words (stray marks from the artwork behind the text).
-      const words = (data.blocks ?? [])
+      const all = (data.blocks ?? [])
         .flatMap((block) => block.paragraphs)
         .flatMap((paragraph) => paragraph.lines)
-        .flatMap((line) => line.words)
-        .filter((word) => word.confidence >= 60 && /[A-Za-z0-9]/.test(word.text))
+        .flatMap((line) => line.words);
+      if (typeof localStorage !== "undefined" && localStorage.getItem("ocrDebug")) {
+        console.log("OCR", i, all.map((word) => `${word.text}(${Math.round(word.confidence)})`).join(" "));
+      }
+      // Keep confident words. Short fragments (1-3 characters) must be very
+      // confident: they are usually stray marks from the artwork behind the text.
+      const words = all
+        .filter((word) => {
+          const letters = (word.text.match(/[A-Za-z0-9]/g) ?? []).length;
+          if (letters === 0) return word.confidence >= 60;
+          if (letters <= 3) return word.confidence >= 85;
+          return word.confidence >= 20;
+        })
         .map((word) => word.text);
       const text = words.length > 0 ? words.join(" ") : data.text;
       reads.push(text.replace(/\s+/g, " ").trim());

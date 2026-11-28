@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useImageSize } from "@/components/ImageCropper";
 import { addSkinFromScreenshotAction, setSkinImageAction } from "@/lib/actions/skins";
 import { normalizeSkinName } from "@/lib/skin-name";
+import { ROV_HERO_NAMES } from "@/lib/rov-heroes";
 import {
   cardHash,
   cleanName,
@@ -12,6 +13,7 @@ import {
   hashDistance,
   heroStripCanvas,
   matchCards,
+  nameScore,
   nameStripCanvas,
   readNames,
   type Rect,
@@ -49,10 +51,13 @@ export function AutoSplitter({
   heroName: fixedHeroName,
   skins,
   refUrl = null,
+  heroNames = [],
 }: {
   heroName?: string;
   skins: SplitSkin[];
   refUrl?: string | null;
+  // Heroes that already exist, to correct and suggest hero names.
+  heroNames?: string[];
 }) {
   const router = useRouter();
   const chooserRef = useRef<HTMLInputElement>(null);
@@ -124,13 +129,33 @@ export function AutoSplitter({
       let readFailed = false;
       try {
         setProgress(`กำลังอ่านชื่อ 0/${strips.length}`);
-        reads = await readNames(strips, (done, total) => setProgress(`กำลังอ่านชื่อ ${done}/${total}`));
+        const singleLine = strips.map((_, k) => plan.some((p) => p.heroAt === k));
+        reads = await readNames(strips, (done, total) => setProgress(`กำลังอ่านชื่อ ${done}/${total}`), singleLine);
       } catch {
         readFailed = true;
       }
 
       // 3. Build one row per card.
-      const heroGuesses = plan.map((p) => (p.heroAt >= 0 ? cleanName(reads[p.heroAt] ?? "") : ""));
+      // A hero name read from the header is snapped to a hero that already
+      // exists when it is close enough (so "Alri" becomes "Airi").
+      const snap = (guess: string) => {
+        let bestName = guess;
+        let bestScore = 0.7;
+        for (const name of [...heroNames, ...ROV_HERO_NAMES]) {
+          const score = nameScore(guess, name);
+          if (score >= bestScore) {
+            bestScore = score;
+            bestName = name;
+          }
+        }
+        return bestName;
+      };
+      const rawGuesses = plan.map((p) => (p.heroAt >= 0 ? cleanName(reads[p.heroAt] ?? "") : ""));
+      // A picture whose header could not be read takes the most common reading of the others.
+      const common = rawGuesses
+        .filter((g) => g.length >= 3)
+        .sort((a, b) => rawGuesses.filter((g) => g === b).length - rawGuesses.filter((g) => g === a).length)[0];
+      const heroGuesses = rawGuesses.map((g) => snap(g.length >= 3 ? g : (common ?? g)));
       const built: Row[] = [];
       const hashes: string[] = [];
       loaded.forEach(({ img, cards }, imageIndex) => {
@@ -304,6 +329,12 @@ export function AutoSplitter({
         ) : null}
       </div>
 
+      <datalist id="auto-hero-names">
+        {heroNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+
       {message ? (
         <p
           className={`rounded-lg px-3 py-2 text-sm ${
@@ -342,6 +373,7 @@ export function AutoSplitter({
                         maxLength={60}
                         className="input py-1.5 text-sm"
                         placeholder="เช่น Allain"
+                        list="auto-hero-names"
                       />
                     </label>
                   ) : null}

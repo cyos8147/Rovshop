@@ -69,6 +69,7 @@ export default async function AdminHeroSkinsPage({
 
       <AutoSplitter
         heroName={hero.name}
+        heroNames={[hero.name, ...otherHeroes]}
         library={hero.skins.map((skin) => ({
           id: skin.id,
           name: skin.name,

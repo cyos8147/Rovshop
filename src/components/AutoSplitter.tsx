@@ -92,17 +92,19 @@ export function AutoSplitter({
   const [progress, setProgress] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [heroInputs, setHeroInputs] = useState<string[]>([]);
-  const [imageNotes, setImageNotes] = useState<{ guessed: boolean; other: string }[]>([]);
+  const [imageNotes, setImageNotes] = useState<{ guessed: boolean; other: string; route: string }[]>([]);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
   const libById = new Map(library.map((l) => [l.id, l]));
-  const heroFor = (imageIndex: number) => (fixedHeroName ?? heroInputs[imageIndex] ?? "").trim();
+  const heroFor = (imageIndex: number) =>
+    (imageNotes[imageIndex]?.route || (fixedHeroName ?? heroInputs[imageIndex]) || "").trim();
   // Every skin we know of (the hero's own list, and the whole library with its hero).
   const skinById = new Map<string, { id: string; name: string; hasImage: boolean }>([
     ...skins.map((s) => [s.id, s] as const),
     ...library.map((l) => [l.id, { id: l.id, name: l.name, hasImage: Boolean(l.imageUrl) }] as const),
   ]);
-  const [deleteIds, setDeleteIds] = useState<Set<string>>(new Set());
+  // Leftover skins (not in the pictures) are deleted on save unless the admin keeps them.
+  const [keepIds, setKeepIds] = useState<Set<string>>(new Set());
   const existingNames = new Set(skins.map((s) => normalizeSkinName(s.name)));
 
   const reset = () => {
@@ -111,7 +113,7 @@ export function AutoSplitter({
     setRows([]);
     setHeroInputs([]);
     setImageNotes([]);
-    setDeleteIds(new Set());
+    setKeepIds(new Set());
     setPhase("idle");
     setProgress("");
   };
@@ -243,18 +245,20 @@ export function AutoSplitter({
       const heroGuesses = rawGuesses.map((g) => snap(g.length >= 3 ? g : (common ?? g)));
       // Per picture: the header could not be read (the hero was taken from the other
       // pictures), or, on a hero's page, the header names a different hero.
-      const notesPerImage = rawGuesses.map((g, k) => ({
-        guessed: !fixedHeroName && g.length < 3 && Boolean(common),
-        // Another hero: the reading is a known hero other than this page's hero, or clearly
-        // a different name ("Ata" on Zata's page counts: both are real heroes).
-        other:
-          fixedHeroName &&
-          g.length >= 3 &&
-          normalizeSkinName(heroGuesses[k]) !== normalizeSkinName(fixedHeroName) &&
-          (Boolean(closest(g, ROV_HERO_NAMES) || closest(g, heroNames)) || nameSimilarity(heroGuesses[k], fixedHeroName) < 0.6)
-            ? heroGuesses[k]
-            : "",
-      }));
+      const notesPerImage = rawGuesses.map((g, k) => {
+        const known = g.length >= 3 && Boolean(closest(g, ROV_HERO_NAMES) || closest(g, heroNames));
+        const differs =
+          Boolean(fixedHeroName) && g.length >= 3 && normalizeSkinName(heroGuesses[k]) !== normalizeSkinName(fixedHeroName ?? "");
+        // Another hero: a known hero other than this page's hero ("Ata" on Zata's page
+        // counts: both are real heroes), or clearly a different name.
+        const other = differs && (known || nameSimilarity(heroGuesses[k], fixedHeroName ?? "") < 0.6) ? heroGuesses[k] : "";
+        return {
+          guessed: !fixedHeroName && g.length < 3 && Boolean(common),
+          other,
+          // A known hero: its cards are saved to that hero instead of this page's hero.
+          route: other && known ? other : "",
+        };
+      });
       const built: Row[] = [];
       const hashes: string[] = [];
       const badges: string[] = [];
@@ -310,6 +314,10 @@ export function AutoSplitter({
             }
           }
           const skinId = libId ? "" : matched ? matched.id : newName.length >= 2 ? NEW : "";
+          // A skin found by its name gets this picture unless it already has the same one.
+          const savedHash = matched ? libHashes.get(matched.id) : undefined;
+          const needPicture =
+            Boolean(matched) && (!matched?.hasImage || !savedHash || !hash || hashDistance(savedHash, hash) > 4);
 
           // Same skin as an earlier card of this batch (same hero and name)?
           const nameKey = `${normalizeSkinName(heroGuesses[imageIndex])}:${normalizeSkinName(newName)}`;
@@ -359,7 +367,7 @@ export function AutoSplitter({
             hash,
             libId,
             newName,
-            include: duplicateOf < 0 && (libId ? fixNeeded : matched ? true : newName.length >= 2),
+            include: duplicateOf < 0 && (libId ? fixNeeded : matched ? needPicture : newName.length >= 2),
             duplicateOf: duplicateOf >= 0 ? duplicateOf : null,
             variantOf: variantNote ? nameDup : null,
             unsure: Boolean(unsureReads[plan[imageIndex].cardAt[i]]),
@@ -414,7 +422,8 @@ export function AutoSplitter({
         }
       });
       // A version whose final name is already a skin of this hero (sending the same
-      // pictures again) is that skin: shown with it, picture replacement left unticked.
+      // pictures again) is that skin. Its picture is replaced: the levels share artwork,
+      // so an earlier mix-up of names and pictures is put right this way.
       built.forEach((row) => {
         if (row.skinId !== NEW || row.variantOf === null) return;
         const hero = normalizeSkinName(fixedHeroName ?? heroGuesses[row.imageIndex]);
@@ -424,12 +433,13 @@ export function AutoSplitter({
         if (existing) {
           row.skinId = existing.id;
           row.newName = "";
-          row.include = false;
+          row.include = true;
         }
       });
-      // Cards of a picture that belongs to another hero are left unticked.
+      // Cards of a picture of another hero that is not a known hero are left unticked.
       built.forEach((row) => {
-        if (notesPerImage[row.imageIndex]?.other) row.include = false;
+        const note = notesPerImage[row.imageIndex];
+        if (note?.other && !note.route) row.include = false;
       });
       setImageNotes(notesPerImage);
       setHeroInputs(heroGuesses);
@@ -476,7 +486,6 @@ export function AutoSplitter({
   const duplicated = keys.some((key, i) => keys.indexOf(key) !== i);
   const clashesWithExisting = chosen.some((row) => row.skinId === NEW && existingNames.has(normalizeSkinName(row.newName)));
   const needsHero = chosen.some((row) => (row.skinId === NEW || row.libId) && heroFor(row.imageIndex).length < 2);
-  const blocked = (chosen.length === 0 && deleteIds.size === 0) || duplicated || clashesWithExisting || needsHero;
 
   // Skins of the heroes in this batch that none of the cards refers to: possibly wrong entries.
   const referenced = new Set(rows.flatMap((row) => [row.libId, row.skinId].filter((v): v is string => Boolean(v) && v !== NEW)));
@@ -486,12 +495,24 @@ export function AutoSplitter({
   const leftovers = rows.length
     ? library.filter((l) => batchHeroes.has(normalizeSkinName(l.heroName)) && !referenced.has(l.id))
     : [];
+  const toDelete = leftovers.filter((l) => !keepIds.has(l.id));
+  const blocked = (chosen.length === 0 && toDelete.length === 0) || duplicated || clashesWithExisting || needsHero;
 
   const saveAll = async () => {
     if (blocked) return;
     setPhase("saving");
     setMessage(null);
     let saved = 0;
+    // Wrong entries go first, so their names are free for the corrected ones.
+    let deletedCount = 0;
+    if (toDelete.length > 0) {
+      try {
+        const result = await deleteSkinsAction(toDelete.map((l) => l.id));
+        deletedCount = result.deleted;
+      } catch {
+        /* reported below */
+      }
+    }
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       if (!chosen.includes(row)) continue;
@@ -557,21 +578,12 @@ export function AutoSplitter({
         update(i, { status: "error", note: "บันทึกไม่สำเร็จ" });
       }
     }
-    let deletedCount = 0;
-    if (deleteIds.size > 0) {
-      try {
-        const result = await deleteSkinsAction([...deleteIds]);
-        deletedCount = result.deleted;
-      } catch {
-        /* reported below */
-      }
-    }
     setPhase("done");
     setMessage({
       kind: saved > 0 || deletedCount > 0 ? "ok" : "error",
       text:
         saved > 0 || deletedCount > 0
-          ? `บันทึก ${saved} สกิน${deletedCount > 0 ? ` · ลบรายการผิด ${deletedCount}` : ""} แล้ว`
+          ? `บันทึก ${saved} สกิน${deletedCount > 0 ? ` · ลบรายการที่ไม่อยู่ในภาพ ${deletedCount}` : ""} แล้ว`
           : "ไม่ได้บันทึกสกินใหม่",
     });
     router.refresh();
@@ -652,7 +664,9 @@ export function AutoSplitter({
                   </h3>
                   {imageNotes[imageIndex]?.other ? (
                     <p className="w-full text-xs text-rose-300">
-                      ภาพนี้น่าจะเป็นฮีโร่ {imageNotes[imageIndex].other} ไม่ใช่ {fixedHeroName} จึงไม่ได้ติ๊กไว้ ถ้าจะเพิ่มให้ฮีโร่นั้น ให้ส่งที่หน้าคลังสกิน
+                      {imageNotes[imageIndex].route
+                        ? `ภาพนี้เป็นของฮีโร่ ${imageNotes[imageIndex].route} ไม่ใช่ ${fixedHeroName} จะบันทึกให้ฮีโร่ ${imageNotes[imageIndex].route} แทน`
+                        : `ภาพนี้น่าจะเป็นฮีโร่ ${imageNotes[imageIndex].other} ไม่ใช่ ${fixedHeroName} จึงไม่ได้ติ๊กไว้ ถ้าจะเพิ่มให้ฮีโร่นั้น ให้ส่งที่หน้าคลังสกิน`}
                     </p>
                   ) : null}
                   {imageNotes[imageIndex]?.guessed ? (
@@ -801,9 +815,11 @@ export function AutoSplitter({
 
           {leftovers.length > 0 ? (
             <div className="space-y-2 rounded-xl border border-border bg-bg-soft p-3">
-              <h3 className="text-sm font-semibold text-ink">สกินของฮีโร่เหล่านี้ที่ไม่อยู่ในภาพที่ส่ง ({leftovers.length})</h3>
+              <h3 className="text-sm font-semibold text-ink">
+                สกินที่ไม่อยู่ในภาพที่ส่ง จะถูกลบ {toDelete.length} จาก {leftovers.length}
+              </h3>
               <p className="text-xs text-ink-muted">
-                อาจเป็นรายการที่สร้างผิดไว้ ติ๊กเฉพาะอันที่ผิดจริงเพื่อลบตอนกดบันทึก ถ้าเพียงแต่ไม่ได้แคปมาให้ครบ อย่าติ๊ก
+                ระบบติ๊กไว้ให้ลบ เพื่อให้ฮีโร่ตรงกับภาพที่ส่ง ถ้าคุณแคปมาไม่ครบทุกการ์ด ให้เอาติ๊กออกจากอันที่ยังต้องการเก็บ
               </p>
               <ul className="grid gap-1 sm:grid-cols-2">
                 {leftovers.map((l) => (
@@ -811,13 +827,13 @@ export function AutoSplitter({
                     <label className="flex items-center gap-2 text-xs text-ink">
                       <input
                         type="checkbox"
-                        checked={deleteIds.has(l.id)}
+                        checked={!keepIds.has(l.id)}
                         disabled={phase !== "review"}
                         onChange={(event) =>
-                          setDeleteIds((current) => {
+                          setKeepIds((current) => {
                             const next = new Set(current);
-                            if (event.target.checked) next.add(l.id);
-                            else next.delete(l.id);
+                            if (event.target.checked) next.delete(l.id);
+                            else next.add(l.id);
                             return next;
                           })
                         }
@@ -834,7 +850,7 @@ export function AutoSplitter({
           {phase === "review" ? (
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={saveAll} disabled={blocked} className="btn-primary">
-                บันทึก {chosen.length} สกิน{deleteIds.size > 0 ? ` · ลบ ${deleteIds.size}` : ""}
+                บันทึก {chosen.length} สกิน{toDelete.length > 0 ? ` · ลบ ${toDelete.length}` : ""}
               </button>
               <button type="button" onClick={close} className="btn-secondary">
                 ยกเลิก

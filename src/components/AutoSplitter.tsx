@@ -85,6 +85,7 @@ export function AutoSplitter({
   const router = useRouter();
   const chooserRef = useRef<HTMLInputElement>(null);
   const imagesRef = useRef<HTMLImageElement[]>([]);
+  const boxRef = useRef<HTMLDivElement>(null);
   const refSize = useImageSize(refUrl);
 
   const [phase, setPhase] = useState<"idle" | "working" | "review" | "saving" | "done">("idle");
@@ -111,6 +112,15 @@ export function AutoSplitter({
     setDeleteIds(new Set());
     setPhase("idle");
     setProgress("");
+  };
+
+  // Close the review: after saving it simply goes away (the success message stays);
+  // before saving, it asks first because the readings would be lost.
+  const close = () => {
+    if (phase === "review" && !window.confirm("ปิดโดยไม่บันทึก? รายการที่อ่านได้จะหายไป")) return;
+    if (phase === "review") setMessage(null);
+    reset();
+    requestAnimationFrame(() => boxRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
 
   const onPick = async (picked: File[]) => {
@@ -531,7 +541,7 @@ export function AutoSplitter({
   const imageCount = imagesRef.current.length;
 
   return (
-    <div className="card space-y-4 p-4">
+    <div ref={boxRef} className="card scroll-mt-24 space-y-4 p-4">
       <input
         ref={chooserRef}
         type="file"
@@ -555,11 +565,18 @@ export function AutoSplitter({
             เลือกภาพแคปที่มีการ์ดสกินได้หลายภาพพร้อมกัน ระบบจะแยกการ์ด อ่านชื่อใต้การ์ด{fixedHeroName ? "" : " และชื่อฮีโร่ที่หัวหน้าจอ"} สกินที่ยังไม่มีจะถูกสร้างใหม่ตามชื่อที่อ่านได้ พร้อมรูป ไม่ทับรูปเดิม และไม่ใส่ซ้ำ
           </p>
         </div>
-        {phase === "idle" || phase === "done" ? (
-          <button type="button" onClick={() => chooserRef.current?.click()} className="btn-primary">
-            {phase === "done" ? "เลือกภาพอื่น" : "เลือกภาพแคป (หลายภาพได้)"}
-          </button>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {phase === "idle" || phase === "done" ? (
+            <button type="button" onClick={() => chooserRef.current?.click()} className="btn-primary">
+              {phase === "done" ? "เลือกภาพอื่น" : "เลือกภาพแคป (หลายภาพได้)"}
+            </button>
+          ) : null}
+          {phase === "review" || phase === "done" ? (
+            <button type="button" onClick={close} className="btn-secondary" aria-label="ปิดหน้าตรวจ">
+              ✕ ปิด
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <datalist id="auto-hero-names">
@@ -765,8 +782,19 @@ export function AutoSplitter({
               <button type="button" onClick={saveAll} disabled={blocked} className="btn-primary">
                 บันทึก {chosen.length} สกิน{deleteIds.size > 0 ? ` · ลบ ${deleteIds.size}` : ""}
               </button>
-              <button type="button" onClick={reset} className="btn-secondary">
-                เลือกภาพใหม่
+              <button type="button" onClick={close} className="btn-secondary">
+                ยกเลิก
+              </button>
+            </div>
+          ) : null}
+
+          {phase === "done" ? (
+            <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+              <button type="button" onClick={close} className="btn-primary">
+                เสร็จ ปิดหน้าตรวจ
+              </button>
+              <button type="button" onClick={() => chooserRef.current?.click()} className="btn-secondary">
+                เพิ่มภาพต่อ
               </button>
             </div>
           ) : null}

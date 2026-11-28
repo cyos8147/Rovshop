@@ -304,6 +304,21 @@ export function AutoSplitter({
           });
         });
       });
+      // A card that is the same picture as an earlier card but is read better (a card
+      // that was selected on the site is dimmed and its name cannot be read) takes over.
+      built.forEach((row, i) => {
+        const j = row.duplicateOf;
+        if (j === null || row.duplicateKind !== "picture") return;
+        const earlier = built[j];
+        if (earlier.skinId === "" && !earlier.libId && row.skinId !== "") {
+          earlier.duplicateOf = i;
+          earlier.duplicateKind = "picture";
+          earlier.include = false;
+          row.duplicateOf = null;
+          row.duplicateKind = null;
+          row.include = row.skinId === NEW ? row.newName.trim().length >= 2 : true;
+        }
+      });
       setHeroInputs(heroGuesses);
       setRows(built);
       setPhase("review");

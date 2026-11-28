@@ -1,0 +1,1 @@
+ALTER TABLE "Skin" ADD COLUMN "imageHash" TEXT;

@@ -155,6 +155,9 @@ model Skin {
   // to add a tier).
   tier      String   @default("A")
   imageUrl  String?
+  // 64-character fingerprint of the picture (see cardHash), used to recognise
+  // the same skin in a new screenshot even when its name was entered wrongly.
+  imageHash String?
   hero      Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
   heroId    String
   createdAt DateTime @default(now())

@@ -254,7 +254,11 @@ export function AutoSplitter({
           // Same picture = same artwork AND the same badge corner: the levels of an
           // evolving (EVO) skin share the artwork and differ only in the badge.
           const sameArt = (k: number) => Boolean(hashes[k] && hash && hashDistance(hashes[k], hash) <= 4);
-          const pictureDup = hashes.findIndex((_, k) => sameArt(k) && hashDistance(badges[k], badge) <= 22);
+          // Two cards in ONE screenshot are always two different cards, so only
+          // cards from the other screenshots are compared.
+          const pictureDup = hashes.findIndex(
+            (_, k) => built[k].imageIndex !== imageIndex && sameArt(k) && hashDistance(badges[k], badge) <= 22
+          );
           hashes.push(hash);
           badges.push(badge);
 
@@ -317,7 +321,7 @@ export function AutoSplitter({
                   r.skinId === NEW &&
                   normalizeSkinName(heroGuesses[r.imageIndex]) === normalizeSkinName(heroGuesses[imageIndex]) &&
                   normalizeSkinName(r.newName) === normalizeSkinName(name)
-              ) || existingNames.has(normalizeSkinName(name));
+              );
             while (taken(`${base} (${k})`)) k++;
             newName = `${base} (${k})`;
             variantNote = true;
@@ -388,9 +392,23 @@ export function AutoSplitter({
           if (!row.evo) continue;
           let name = `${base} ${row.evo}`;
           let n = 2;
-          while (used.has(normalizeSkinName(name)) || existingNames.has(normalizeSkinName(name))) name = `${base} ${row.evo} (${n++})`;
+          while (used.has(normalizeSkinName(name))) name = `${base} ${row.evo} (${n++})`;
           used.add(normalizeSkinName(name));
           row.newName = name;
+        }
+      });
+      // A version whose final name is already a skin of this hero (sending the same
+      // pictures again) is that skin: shown with it, picture replacement left unticked.
+      built.forEach((row) => {
+        if (row.skinId !== NEW || row.variantOf === null) return;
+        const hero = normalizeSkinName(fixedHeroName ?? heroGuesses[row.imageIndex]);
+        const existing = library.find(
+          (l) => normalizeSkinName(l.heroName) === hero && normalizeSkinName(l.name) === normalizeSkinName(row.newName)
+        );
+        if (existing) {
+          row.skinId = existing.id;
+          row.newName = "";
+          row.include = false;
         }
       });
       setHeroInputs(heroGuesses);
@@ -683,6 +701,13 @@ export function AutoSplitter({
                         >
                           <option value="">— ข้ามใบนี้ —</option>
                           <option value={NEW}>+ สกินใหม่</option>
+                          {/* A library skin this card was matched to (not in the hero's own list on this page). */}
+                          {row.skinId && row.skinId !== NEW && !skins.some((s) => s.id === row.skinId) && libById.get(row.skinId) ? (
+                            <option value={row.skinId}>
+                              {libById.get(row.skinId)?.name}
+                              {libById.get(row.skinId)?.imageUrl ? " (มีรูปแล้ว: จะเปลี่ยนรูป)" : ""}
+                            </option>
+                          ) : null}
                           {skins.map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.name}

@@ -265,6 +265,64 @@ export function cleanName(read: string): string {
     .trim();
 }
 
+// ---- EVO badge ------------------------------------------------------------
+
+// The badge in the top-right corner of a card ("EVO" and a level I-V for
+// evolving skins), as black text on white for OCR.
+export function badgeStripCanvas(source: CanvasImageSource, card: Rect): HTMLCanvasElement {
+  const sx = card.x + card.w * 0.4;
+  const sw = card.w * 0.6;
+  const sh = card.h * 0.24;
+  const outW = 600;
+  const outH = Math.max(1, Math.round((sh / sw) * outW));
+  const canvas = document.createElement("canvas");
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return canvas;
+  ctx.drawImage(source, sx, card.y, sw, sh, 0, 0, outW, outH);
+  const img = ctx.getImageData(0, 0, outW, outH);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const max = Math.max(d[i], d[i + 1], d[i + 2]);
+    const min = Math.min(d[i], d[i + 1], d[i + 2]);
+    const text = min > 165 && max - min < 95;
+    const v = text ? 0 : 255;
+    d[i] = d[i + 1] = d[i + 2] = v;
+    d[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
+// "EVO" with its level from a badge reading: "EVO IV", "EVO", or "" when the
+// badge is not an EVO badge.
+export function parseEvo(read: string): string {
+  const text = read.replace(/[|!1l]/g, "I").toUpperCase();
+  const m = text.match(/EV[O0Q]\s*([IVX]{1,4})?/);
+  if (!m) return "";
+  const level = (m[1] ?? "").replace(/[^IV]/g, "");
+  const valid = ["I", "II", "III", "IV", "V"];
+  return valid.includes(level) ? `EVO ${level}` : "EVO";
+}
+
+// A finer fingerprint of the badge corner only (32x12), to tell apart cards whose
+// artwork is the same and only the EVO level differs.
+export function badgeHash(source: CanvasImageSource, card: Rect): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = 32;
+  canvas.height = 12;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return "";
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(source, card.x + card.w * 0.4, card.y, card.w * 0.6, card.h * 0.24, 0, 0, 32, 12);
+  const d = ctx.getImageData(0, 0, 32, 12).data;
+  const grey: number[] = [];
+  for (let i = 0; i < d.length; i += 4) grey.push(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]);
+  const mean = grey.reduce((x, y) => x + y, 0) / grey.length;
+  return grey.map((v) => (v > mean ? "1" : "0")).join("");
+}
+
 // ---- Same picture twice -----------------------------------------------------
 
 // A tiny fingerprint of a card's picture (8x8 grey, above / below its average),
@@ -372,7 +430,9 @@ export function matchCards(reads: string[], skinNames: string[], minScore = 0.55
 export async function readNames(
   strips: HTMLCanvasElement[],
   onProgress?: (done: number, total: number) => void,
-  singleLine: boolean[] = []
+  singleLine: boolean[] = [],
+  // Filled with true for a reading that may be incomplete (a word was too unclear to keep).
+  unsure: boolean[] = []
 ): Promise<string[]> {
   const { createWorker } = await import("tesseract.js");
   const worker = await createWorker("eng", 1, {
@@ -406,6 +466,10 @@ export async function readNames(
           return word.confidence >= 20;
         })
         .map((word) => word.text);
+      unsure[i] = all.some((word) => {
+        const letters = (word.text.match(/[A-Za-z]/g) ?? []).length;
+        return letters >= 3 && word.confidence < 20;
+      }) || /:\s*$/.test(words.join(" "));
       const text = words.length > 0 ? words.join(" ") : data.text;
       reads.push(text.replace(/\s+/g, " ").trim());
       onProgress?.(i + 1, strips.length);

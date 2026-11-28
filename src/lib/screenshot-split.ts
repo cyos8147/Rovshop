@@ -96,11 +96,16 @@ export function detectCards(
       colFlags.push(count / (y1 - y0 + 1) > 0.5);
     }
     const band = runs(colFlags, 3).map(([x0, x1]) => ({ x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }));
+    if (typeof localStorage !== "undefined" && localStorage.getItem("ocrDebug")) {
+      console.log("OCR-ROW", y0, y1, JSON.stringify(band.map((r) => [r.x, r.w])), "bg", bg.map(Math.round).join(","));
+    }
     rects.push(...band);
     // A row of cards = two or more blocks of about the same width.
-    if (gridTopScaled === null && band.length >= 2) {
-      const first = band[0].w;
-      if (first > W * 0.1 && band.every((r) => Math.abs(r.w - first) / first < 0.15)) gridTopScaled = y0;
+    // (thin slivers such as a scroll bar at the edge of the screen are ignored)
+    const wide = band.filter((r) => r.w > W * 0.05);
+    if (gridTopScaled === null && wide.length >= 2) {
+      const first = wide[0].w;
+      if (first > W * 0.1 && wide.every((r) => Math.abs(r.w - first) / first < 0.15)) gridTopScaled = y0;
     }
   }
 

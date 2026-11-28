@@ -3,7 +3,7 @@
 // is very close to one of these, so new heroes are left as read.
 export const ROV_HERO_NAMES = [
   "Aleister", "Alice", "Allain", "Ata", "Amily", "Annette", "Aoi", "Arduin", "Arum", "Arthur", "Astrid", "Aya", "Airi",
-  "Azzen'Ka", "Baldum", "Bijan", "Biron", "Bonnie", "Butterfly", "Capheny", "Celica", "Chaugnar", "Cresht", "D'Arcy",
+  "Azzen'ka", "Baldum", "Bijan", "Biron", "Bonnie", "Butterfly", "Capheny", "Celica", "Chaugnar", "Cresht", "D'Arcy",
   "Darcy", "Diaochan", "Dirak", "Dolia", "Elsu", "Enzo", "Errol", "Eland'orr", "Fennik", "Florentino", "Gildur",
   "Goverra", "Grakk", "Hayate", "Ignis", "Ilumia", "Ishar", "Jinnar", "Kahlii", "Kaine", "Kil'Groth", "Kriknak",
   "Krixi", "Lauriel", "Laville", "Liliana", "Lindis", "Lorion", "Lu Bu", "Lumburr", "Maloch", "Marja", "Max", "Mganga",

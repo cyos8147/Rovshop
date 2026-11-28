@@ -572,3 +572,26 @@ export async function renameOrMergeHeroAction(heroId: string, newName: string): 
   revalidateSkinPages(target.id);
   return { ok: true, merged: true, moved, removed, heroId: target.id };
 }
+
+// Deletes skins picked by the admin in the screenshot tool ("not in the pictures
+// you sent"). A hero left with no skins and no picture is removed too.
+export async function deleteSkinsAction(ids: string[]): Promise<{ ok: boolean; deleted: number; heroesRemoved: number }> {
+  await requireAdmin();
+  const clean = ids.filter((id) => typeof id === "string" && id.length > 0).slice(0, 300);
+  if (clean.length === 0) return { ok: true, deleted: 0, heroesRemoved: 0 };
+
+  const skins = await prisma.skin.findMany({ where: { id: { in: clean } }, select: { id: true, heroId: true } });
+  await prisma.skin.deleteMany({ where: { id: { in: skins.map((s) => s.id) } } });
+
+  let heroesRemoved = 0;
+  for (const heroId of new Set(skins.map((s) => s.heroId))) {
+    const left = await prisma.skin.count({ where: { heroId } });
+    const hero = await prisma.hero.findUnique({ where: { id: heroId }, select: { imageUrl: true } });
+    if (left === 0 && hero && !hero.imageUrl) {
+      await prisma.hero.delete({ where: { id: heroId } });
+      heroesRemoved++;
+    }
+  }
+  revalidateSkinPages();
+  return { ok: true, deleted: skins.length, heroesRemoved };
+}

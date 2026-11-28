@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { fixSkinAction } from "@/lib/actions/skins";
+import { deleteSkinAction, fixSkinAction } from "@/lib/actions/skins";
 import { SkinAudit } from "@/components/SkinAudit";
 
 export const metadata: Metadata = { title: "ตรวจชื่อกับรูป" };
@@ -26,6 +26,7 @@ export default async function SkinAuditPage() {
       </div>
       <SkinAudit
         fixAction={fixSkinAction}
+        deleteAction={deleteSkinAction}
         skins={skins.map((s) => ({
           id: s.id,
           name: s.name,

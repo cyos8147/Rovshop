@@ -2,14 +2,25 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
-import { cleanName, createNameReader, evoLevel, nameStripCanvas, type NameReading } from "@/lib/screenshot-split";
+import {
+  badgeHash,
+  cardHash,
+  cleanName,
+  createNameReader,
+  evoLevel,
+  hashDistance,
+  nameStripCanvas,
+  type NameReading,
+} from "@/lib/screenshot-split";
 import type { FixSkinResult } from "@/lib/actions/skins";
 
 type AuditSkin = { id: string; name: string; imageUrl: string; heroId: string; heroName: string };
-type Status = "ok" | "different" | "evo" | "lookalike" | "unclear" | "unreadable" | "noimage";
-type Result = { status: Status; read: string; evo: string; suggestion: string };
+type Status = "ok" | "duplicate" | "different" | "evo" | "lookalike" | "unclear" | "unreadable" | "noimage";
+// dupOf: the skin of the same hero that has the same picture (for "duplicate").
+type Result = { status: Status; read: string; evo: string; suggestion: string; dupOf?: string };
 
 const LABELS: Record<Exclude<Status, "ok">, string> = {
+  duplicate: "รูปซ้ำกับสกินอื่นของฮีโร่นี้",
   different: "ชื่อไม่ตรงกับรูป",
   evo: "เลเวล EVO ไม่ตรงกับป้าย",
   lookalike: "ต่างแค่ตัวอักษรหน้าตาคล้ายกัน (I/l, O/0)",
@@ -17,7 +28,7 @@ const LABELS: Record<Exclude<Status, "ok">, string> = {
   unreadable: "อ่านชื่อในรูปไม่ได้",
   noimage: "เปิดรูปไม่ได้",
 };
-const ORDER: Status[] = ["different", "evo", "lookalike", "unclear"];
+const ORDER: Status[] = ["duplicate", "different", "evo", "lookalike", "unclear"];
 
 const NUMBER = /\s+\(\d+\)$/;
 const EVO_SUFFIX = /\s+(EVO(?:\s+(?:I|II|III|IV|V))?)(\s+\(\d+\))?$/i;
@@ -33,7 +44,7 @@ function savedParts(name: string) {
 const plain = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "");
 const lookalike = (t: string) => plain(t).replace(/[l1]/g, "i").replace(/0/g, "o");
 
-function classify(name: string, reading: NameReading, evoRead: string): Result {
+function classify(name: string, reading: NameReading, evoRead: string, hasVersions: boolean): Result {
   const { base, evo, number } = savedParts(name);
   const read = cleanName(reading.text);
   if (read.length < 2) return { status: "unreadable", read, evo: evoRead, suggestion: name };
@@ -47,7 +58,9 @@ function classify(name: string, reading: NameReading, evoRead: string): Result {
     status = "unclear";
   }
   // Level: only for names that carry one (or a number given when it could not be read).
-  const levelWrong = Boolean((evo || number) && evoRead && evoRead !== evo);
+  // A level is checked for names that carry one (or a number), and for a plain name
+  // when the hero has other versions of it (then the level is missing from the name).
+  const levelWrong = Boolean(evoRead && (evo || number ? evoRead !== evo : hasVersions));
   if (levelWrong && (status === "ok" || status === "unclear")) status = "evo";
   const level = levelWrong ? evoRead : evo;
   const suggestion = [newBase, level, levelWrong ? "" : number].filter(Boolean).join(" ");
@@ -67,9 +80,11 @@ function loadImage(url: string) {
 export function SkinAudit({
   skins,
   fixAction,
+  deleteAction,
 }: {
   skins: AuditSkin[];
   fixAction: (skinId: string, heroName: string, skinName: string) => Promise<FixSkinResult>;
+  deleteAction: (skinId: string) => Promise<void>;
 }) {
   const [scope, setScope] = useState("all");
   const [running, setRunning] = useState(false);
@@ -121,6 +136,19 @@ export function SkinAudit({
     };
     for (let i = 0; i < 6; i++) fetchAt(i);
     let batch: Record<string, Result> = {};
+    // Names that occur more than once per hero once the level / number is taken off.
+    const baseCount = new Map<string, number>();
+    for (const s of skins) {
+      const key = `${s.heroId}:${savedParts(s.name).base.toLowerCase()}`;
+      baseCount.set(key, (baseCount.get(key) ?? 0) + 1);
+    }
+    // Pictures already checked, per hero, to find the same picture saved twice.
+    const seen: { id: string; heroId: string; name: string; hash: string; badge: string; result: Result }[] = [];
+    // The better-named of two copies is kept: a name with a level beats a plain one or a "(n)".
+    const nameRank = (name: string) => {
+      const { evo, number } = savedParts(name);
+      return (evo ? 2 : 0) - (number ? 1 : 0);
+    };
     try {
       for (let i = 0; i < list.length && !stopRef.current; i++) {
         fetchAt(i + 6);
@@ -133,9 +161,24 @@ export function SkinAudit({
           const rect = { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };
           try {
             const reading = await reader.read(nameStripCanvas(img, rect));
-            const { evo, number } = savedParts(skin.name);
-            const evoRead = evo || number ? evoLevel(img, rect) : "";
-            batch[skin.id] = classify(skin.name, reading, evoRead);
+            const hasVersions = (baseCount.get(`${skin.heroId}:${savedParts(skin.name).base.toLowerCase()}`) ?? 0) > 1;
+            const evoRead = evoLevel(img, rect);
+            const result = classify(skin.name, reading, evoRead, hasVersions);
+            batch[skin.id] = result;
+            const hash = cardHash(img, rect);
+            const badge = badgeHash(img, rect);
+            const twin = seen.find(
+              (o) => o.heroId === skin.heroId && hashDistance(o.hash, hash) <= 4 && hashDistance(o.badge, badge) <= 22
+            );
+            if (twin) {
+              // Flag the worse-named copy (the later one when equal).
+              const flagNew = nameRank(skin.name) <= nameRank(twin.name);
+              const target = flagNew ? result : twin.result;
+              target.status = "duplicate";
+              target.dupOf = flagNew ? twin.id : skin.id;
+              if (!flagNew) batch[twin.id] = { ...twin.result };
+            }
+            seen.push({ id: skin.id, heroId: skin.heroId, name: skin.name, hash, badge, result });
           } catch {
             // A picture served without permission to read its pixels.
             batch[skin.id] = { status: "noimage", read: "", evo: "", suggestion: skin.name };
@@ -158,6 +201,18 @@ export function SkinAudit({
     }
   };
 
+  const remove = async (skin: AuditSkin) => {
+    if (!window.confirm(`ลบ "${names[skin.id] ?? skin.name}" ของ ${skin.heroName}?`)) return;
+    setBusy(skin.id);
+    try {
+      await deleteAction(skin.id);
+      setNotes((n) => ({ ...n, [skin.id]: { ok: true, text: "ลบแล้ว" } }));
+    } catch {
+      setNotes((n) => ({ ...n, [skin.id]: { ok: false, text: "ลบไม่สำเร็จ" } }));
+    }
+    setBusy(null);
+  };
+
   const fix = async (skin: AuditSkin) => {
     const value = (edits[skin.id] ?? results[skin.id]?.suggestion ?? "").trim();
     if (!value) return;
@@ -169,7 +224,7 @@ export function SkinAudit({
       return;
     }
     setNames((n) => ({ ...n, [skin.id]: value }));
-    setNotes((n) => ({ ...n, [skin.id]: { ok: true, text: "แก้แล้ว" } }));
+    setNotes((n) => ({ ...n, [skin.id]: { ok: true, text: "แก้ชื่อแล้ว" } }));
   };
 
   const byId = new Map(skins.map((s) => [s.id, s]));
@@ -196,14 +251,24 @@ export function SkinAudit({
             อ่านจากรูป: <span className="text-ink">{r.read || "—"}</span>
             {r.evo ? ` · ป้าย ${r.evo}` : ""}
           </p>
+          {r.status === "duplicate" && r.dupOf ? (
+            <p className="text-xs text-ink-muted">
+              ซ้ำกับ: <span className="text-ink">{names[r.dupOf] ?? byId.get(r.dupOf)?.name}</span>
+            </p>
+          ) : null}
           {notes[id]?.ok ? (
-            <p className="text-xs text-emerald-300">แก้แล้ว</p>
+            <p className="text-xs text-emerald-300">{notes[id].text}</p>
           ) : (
             <p className={`text-xs ${r.status === "unclear" || r.status === "lookalike" ? "text-gold-soft" : "text-rose-300"}`}>
               {LABELS[r.status as Exclude<Status, "ok">]}
             </p>
           )}
         </div>
+        {r.status === "duplicate" && !notes[id]?.ok ? (
+          <button type="button" onClick={() => remove(skin)} disabled={busy === id} className="btn-danger px-3 py-1.5 text-sm">
+            {busy === id ? "..." : "ลบรายการนี้"}
+          </button>
+        ) : null}
         {r.status !== "noimage" && !notes[id]?.ok ? (
           <div className="flex flex-wrap items-center gap-2">
             <input

@@ -51,6 +51,7 @@ export default async function AdminHeroSkinsPage({
       <AddSkinForm action={createSkinAction.bind(null, hero.id)} heroName={hero.name} />
 
       <AutoSplitter
+        heroName={hero.name}
         refUrl={refUrl}
         skins={[...hero.skins]
           .sort((a, b) => a.name.localeCompare(b.name))

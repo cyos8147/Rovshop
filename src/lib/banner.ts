@@ -111,7 +111,8 @@ export type BannerDesign = {
 export const DEFAULT_DESIGN: BannerDesign = {
   info: EMPTY_INFO,
   theme: "royal",
-  showNames: true,
+  // Pictures cut from skin cards already carry their name, so it is not drawn again by default.
+  showNames: false,
   background: null,
   skinsPerRow: 0,
 };

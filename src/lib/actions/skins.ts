@@ -595,3 +595,13 @@ export async function deleteSkinsAction(ids: string[]): Promise<{ ok: boolean; d
   revalidateSkinPages();
   return { ok: true, deleted: skins.length, heroesRemoved };
 }
+
+// Deletes whole heroes (with their skins) picked on the reference-check page.
+export async function deleteHeroesAction(ids: string[]): Promise<{ ok: boolean; deleted: number }> {
+  await requireAdmin();
+  const clean = ids.filter((id) => typeof id === "string" && id.length > 0).slice(0, 100);
+  if (clean.length === 0) return { ok: true, deleted: 0 };
+  const result = await prisma.hero.deleteMany({ where: { id: { in: clean } } });
+  revalidateSkinPages();
+  return { ok: true, deleted: result.count };
+}

@@ -223,17 +223,27 @@ export function cleanName(read: string): string {
 // A tiny fingerprint of a card's picture (8x8 grey, above / below its average),
 // so two cards showing the same artwork can be told apart from different ones.
 export function cardHash(source: CanvasImageSource, card: Rect): string {
-  const canvas = document.createElement("canvas");
-  canvas.width = 8;
-  canvas.height = 8;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return "";
+  // Two smooth steps (to 64x64, then 8x8), so a big screenshot and a small saved
+  // picture of the same card give nearly the same fingerprint.
+  const mid = document.createElement("canvas");
+  mid.width = 64;
+  mid.height = 64;
+  const mctx = mid.getContext("2d");
+  if (!mctx) return "";
+  mctx.imageSmoothingQuality = "high";
   // Upper part only: the name at the bottom differs between cards of one hero.
-  ctx.drawImage(source, card.x, card.y, card.w, card.h * 0.6, 0, 0, 8, 8);
+  mctx.drawImage(source, card.x, card.y, card.w, card.h * 0.6, 0, 0, 64, 64);
+  const small = document.createElement("canvas");
+  small.width = 8;
+  small.height = 8;
+  const ctx = small.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return "";
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(mid, 0, 0, 64, 64, 0, 0, 8, 8);
   const d = ctx.getImageData(0, 0, 8, 8).data;
   const grey: number[] = [];
   for (let i = 0; i < d.length; i += 4) grey.push(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]);
-  const mean = grey.reduce((a, b) => a + b, 0) / grey.length;
+  const mean = grey.reduce((x, y) => x + y, 0) / grey.length;
   return grey.map((v) => (v > mean ? "1" : "0")).join("");
 }
 

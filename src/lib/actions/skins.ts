@@ -54,6 +54,11 @@ async function findSameNameSkin(heroId: string, name: string) {
   return skins.find((skin) => normalizeSkinName(skin.name) === wanted) ?? null;
 }
 
+// A fingerprint is exactly 64 characters of 0/1; anything else is ignored.
+function cleanHash(value: string | undefined | null): string | null {
+  return value && /^[01]{64}$/.test(value) ? value : null;
+}
+
 function revalidateSkinPages(heroId?: string) {
   revalidatePath("/sort");
   revalidatePath("/admin/skins");
@@ -363,7 +368,7 @@ export async function addHeroSkinAction(_prev: SkinFormState, formData: FormData
 
 // Sets (or replaces) only the picture of one skin. Used by the screenshot
 // cutter, which crops several skins out of one screenshot in a row.
-export async function setSkinImageAction(skinId: string, formData: FormData): Promise<SkinFormState> {
+export async function setSkinImageAction(skinId: string, formData: FormData, imageHash?: string): Promise<SkinFormState> {
   await requireAdmin();
 
   let imageUrl: string | null;
@@ -375,7 +380,11 @@ export async function setSkinImageAction(skinId: string, formData: FormData): Pr
   if (!imageUrl) return { error: "ไม่พบรูป กรุณาลองตัดใหม่อีกครั้ง" };
 
   try {
-    const skin = await prisma.skin.update({ where: { id: skinId }, data: { imageUrl }, select: { heroId: true, name: true } });
+    const skin = await prisma.skin.update({
+      where: { id: skinId },
+      data: { imageUrl, imageHash: cleanHash(imageHash) },
+      select: { heroId: true, name: true },
+    });
     revalidateSkinPages(skin.heroId);
     return { success: `บันทึกรูป "${skin.name}" แล้ว` };
   } catch {
@@ -391,7 +400,8 @@ export type ScreenshotSkinResult = { ok: boolean; status?: "created" | "skipped"
 export async function addSkinFromScreenshotAction(
   heroName: string,
   skinName: string,
-  formData: FormData
+  formData: FormData,
+  imageHash?: string
 ): Promise<ScreenshotSkinResult> {
   await requireAdmin();
 
@@ -434,7 +444,9 @@ export async function addSkinFromScreenshotAction(
     return { ok: true, status: "skipped", heroCreated };
   }
   try {
-    await prisma.skin.create({ data: { name: skinParsed.data, tier: "NORMAL", heroId: hero.id, imageUrl } });
+    await prisma.skin.create({
+      data: { name: skinParsed.data, tier: "NORMAL", heroId: hero.id, imageUrl, imageHash: cleanHash(imageHash) },
+    });
   } catch (error) {
     if (isUniqueViolation(error)) return { ok: true, status: "skipped", heroCreated };
     throw error;
@@ -442,4 +454,75 @@ export async function addSkinFromScreenshotAction(
   const status = "created" as const;
   revalidateSkinPages(hero.id);
   return { ok: true, status, heroCreated };
+}
+
+// Saves fingerprints computed in the browser for pictures that did not have
+// one yet, so the next screenshot is compared without loading them again.
+export async function saveSkinHashesAction(items: { id: string; hash: string }[]): Promise<void> {
+  await requireAdmin();
+  for (const item of items.slice(0, 500)) {
+    const hash = cleanHash(item.hash);
+    if (!hash) continue;
+    await prisma.skin.updateMany({ where: { id: item.id, imageHash: null }, data: { imageHash: hash } });
+  }
+}
+
+export type FixSkinResult = { ok: boolean; status?: "fixed" | "same"; error?: string; heroRemoved?: boolean };
+
+// Corrects an existing skin (found again by its picture): sets its name and
+// moves it to the right hero, creating that hero when needed. The picture is
+// not touched. A hero left with no skins by the move is removed.
+export async function fixSkinAction(skinId: string, heroName: string, skinName: string): Promise<FixSkinResult> {
+  await requireAdmin();
+
+  const clean = (value: string) => value.replace(/[|\r\n]/g, " ").replace(/\s+/g, " ").trim();
+  const heroParsed = heroSchema.shape.name.safeParse(clean(heroName));
+  if (!heroParsed.success) return { ok: false, error: heroParsed.error.issues[0]?.message ?? "ชื่อฮีโร่ไม่ถูกต้อง" };
+  const skinParsed = skinSchema.shape.name.safeParse(clean(skinName));
+  if (!skinParsed.success) return { ok: false, error: skinParsed.error.issues[0]?.message ?? "ชื่อสกินไม่ถูกต้อง" };
+
+  const skin = await prisma.skin.findUnique({ where: { id: skinId }, include: { hero: true } });
+  if (!skin) return { ok: false, error: "ไม่พบสกินนี้แล้ว" };
+
+  let hero = await prisma.hero.findFirst({
+    where: { name: { equals: heroParsed.data, mode: "insensitive" } },
+    select: { id: true, name: true },
+  });
+  if (!hero) {
+    try {
+      hero = await prisma.hero.create({ data: { name: heroParsed.data }, select: { id: true, name: true } });
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      hero = await prisma.hero.findFirst({
+        where: { name: { equals: heroParsed.data, mode: "insensitive" } },
+        select: { id: true, name: true },
+      });
+      if (!hero) return { ok: false, error: "เพิ่มฮีโร่ไม่สำเร็จ" };
+    }
+  }
+
+  if (hero.id === skin.heroId && skin.name === skinParsed.data) return { ok: true, status: "same" };
+
+  const other = await findSameNameSkin(hero.id, skinParsed.data);
+  if (other && other.id !== skin.id) {
+    return { ok: false, error: `${hero.name} มีสกิน "${other.name}" อยู่แล้ว (ซ้ำกับสกินอื่น)` };
+  }
+  try {
+    await prisma.skin.update({ where: { id: skin.id }, data: { name: skinParsed.data, heroId: hero.id } });
+  } catch (error) {
+    if (isUniqueViolation(error)) return { ok: false, error: "ชื่อซ้ำกับสกินอื่นของฮีโร่นี้" };
+    throw error;
+  }
+
+  // A wrongly named hero that has nothing left is removed.
+  let heroRemoved = false;
+  if (skin.heroId !== hero.id) {
+    const left = await prisma.skin.count({ where: { heroId: skin.heroId } });
+    if (left === 0 && !skin.hero.imageUrl) {
+      await prisma.hero.delete({ where: { id: skin.heroId } });
+      heroRemoved = true;
+    }
+  }
+  revalidateSkinPages(hero.id);
+  return { ok: true, status: "fixed", heroRemoved };
 }

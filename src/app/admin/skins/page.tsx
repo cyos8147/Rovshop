@@ -14,6 +14,18 @@ export default async function AdminSkinsPage({ searchParams }: { searchParams: P
   // A picture already on the site: new pictures are saved at its size.
   const refUrl = (await prisma.skin.findFirst({ where: { imageUrl: { not: null } }, select: { imageUrl: true } }))?.imageUrl ?? null;
 
+  const libraryRows = await prisma.skin.findMany({
+    where: { imageUrl: { not: null } },
+    select: { id: true, name: true, imageUrl: true, imageHash: true, hero: { select: { name: true } } },
+    take: 1500,
+  });
+  const library = libraryRows.map((s) => ({
+    id: s.id,
+    name: s.name,
+    heroName: s.hero.name,
+    imageUrl: s.imageUrl ?? "",
+    imageHash: s.imageHash,
+  }));
   const allHeroNames = (await prisma.hero.findMany({ select: { name: true }, orderBy: { name: "asc" } })).map((h) => h.name);
 
   const [heroes, missingByHero] = await Promise.all([
@@ -75,7 +87,7 @@ export default async function AdminSkinsPage({ searchParams }: { searchParams: P
         </p>
       ) : null}
 
-      <AutoSplitter skins={[]} refUrl={refUrl} heroNames={allHeroNames} />
+      <AutoSplitter skins={[]} refUrl={refUrl} heroNames={allHeroNames} library={library} />
 
       <AddHeroSkinForm action={addHeroSkinAction} />
 

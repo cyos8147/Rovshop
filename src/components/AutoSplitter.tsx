@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useImageSize } from "@/components/ImageCropper";
-import { addSkinFromScreenshotAction, setSkinImageAction } from "@/lib/actions/skins";
+import { addSkinFromScreenshotAction, fixSkinAction, saveSkinHashesAction, setSkinImageAction } from "@/lib/actions/skins";
 import { normalizeSkinName } from "@/lib/skin-name";
 import { ROV_HERO_NAMES } from "@/lib/rov-heroes";
 import {
@@ -20,6 +20,9 @@ import {
 } from "@/lib/screenshot-split";
 
 type SplitSkin = { id: string; name: string; hasImage: boolean };
+// A skin that already has a picture: a new screenshot is compared with it, and
+// when the pictures match, its name and hero are corrected from the screenshot.
+export type LibrarySkin = { id: string; name: string; heroName: string; imageUrl: string; imageHash: string | null };
 
 const NEW = "__new__";
 const MAX_FILES = 12;
@@ -31,6 +34,9 @@ type Row = {
   read: string;
   // "" = skip, NEW = create a skin named newName, otherwise an existing skin id
   skinId: string;
+  hash: string;
+  // Set when the card's picture is the picture of a skin already in the library.
+  libId: string | null;
   newName: string;
   include: boolean;
   // Index of an earlier card (over all the pictures) that is the same skin.
@@ -52,10 +58,12 @@ export function AutoSplitter({
   skins,
   refUrl = null,
   heroNames = [],
+  library = [],
 }: {
   heroName?: string;
   skins: SplitSkin[];
   refUrl?: string | null;
+  library?: LibrarySkin[];
   // Heroes that already exist, to correct and suggest hero names.
   heroNames?: string[];
 }) {
@@ -70,6 +78,7 @@ export function AutoSplitter({
   const [heroInputs, setHeroInputs] = useState<string[]>([]);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
+  const libById = new Map(library.map((l) => [l.id, l]));
   const heroFor = (imageIndex: number) => (fixedHeroName ?? heroInputs[imageIndex] ?? "").trim();
   const skinById = new Map(skins.map((s) => [s.id, s]));
   const existingNames = new Set(skins.map((s) => normalizeSkinName(s.name)));
@@ -135,13 +144,43 @@ export function AutoSplitter({
         readFailed = true;
       }
 
+      // 2b. Fingerprints of the pictures already in the library (stored ones, or
+      // computed now by opening the picture; new ones are saved for next time).
+      const libHashes = new Map<string, string>();
+      const toSave: { id: string; hash: string }[] = [];
+      const missing = library.filter((l) => !l.imageHash);
+      library.forEach((l) => l.imageHash && libHashes.set(l.id, l.imageHash));
+      let doneLib = 0;
+      const queue = [...missing];
+      const worker = async () => {
+        for (let l = queue.shift(); l; l = queue.shift()) {
+          try {
+            const pic = new Image();
+            pic.crossOrigin = "anonymous";
+            pic.src = l.imageUrl;
+            await pic.decode();
+            const hash = cardHash(pic, { x: 0, y: 0, w: pic.naturalWidth, h: pic.naturalHeight });
+            if (hash) {
+              libHashes.set(l.id, hash);
+              toSave.push({ id: l.id, hash });
+            }
+          } catch {
+            /* a picture that cannot be read is simply not compared */
+          }
+          doneLib++;
+          setProgress(`กำลังเทียบกับรูปที่มีอยู่ ${doneLib}/${missing.length}`);
+        }
+      };
+      if (missing.length > 0) await Promise.all([worker(), worker(), worker(), worker()]);
+      if (toSave.length > 0) void saveSkinHashesAction(toSave).catch(() => undefined);
+
       // 3. Build one row per card.
       // A hero name read from the header is snapped to a hero that already
       // exists when it is close enough (so "Alri" becomes "Airi").
-      const snap = (guess: string) => {
-        let bestName = guess;
+      const closest = (guess: string, names: string[]) => {
+        let bestName = "";
         let bestScore = 0.7;
-        for (const name of [...heroNames, ...ROV_HERO_NAMES]) {
+        for (const name of names) {
           const score = nameScore(guess, name);
           if (score >= bestScore) {
             bestScore = score;
@@ -150,6 +189,8 @@ export function AutoSplitter({
         }
         return bestName;
       };
+      // The known game heroes come first: a hero entered wrongly earlier must not win.
+      const snap = (guess: string) => closest(guess, ROV_HERO_NAMES) || closest(guess, heroNames) || guess;
       const rawGuesses = plan.map((p) => (p.heroAt >= 0 ? cleanName(reads[p.heroAt] ?? "") : ""));
       // A picture whose header could not be read takes the most common reading of the others.
       const common = rawGuesses
@@ -174,9 +215,21 @@ export function AutoSplitter({
           preview.height = Math.max(1, Math.round((card.h / card.w) * 240));
           preview.getContext("2d")?.drawImage(img, card.x, card.y, card.w, card.h, 0, 0, preview.width, preview.height);
 
-          const matched = matches[i] >= 0 ? skins[matches[i]] : null;
+          // Same picture as a skin already in the library? (clearly the closest one)
+          let libId: string | null = null;
+          if (hash) {
+            const scored = [...libHashes.entries()]
+              .map(([id, h]) => ({ id, d: hashDistance(h, hash) }))
+              .sort((a, b) => a.d - b.d);
+            if (typeof localStorage !== "undefined" && localStorage.getItem("ocrDebug")) {
+              console.log("HASH", built.length, `best ${scored[0]?.d} second ${scored[1]?.d}`);
+            }
+            if (scored[0] && scored[0].d <= 8 && (!scored[1] || scored[1].d - scored[0].d >= 6)) libId = scored[0].id;
+          }
+
+          const matched = !libId && matches[i] >= 0 ? skins[matches[i]] : null;
           const newName = matched ? "" : cleanName(cardReads[i]);
-          const skinId = matched ? matched.id : newName.length >= 2 ? NEW : "";
+          const skinId = libId ? "" : matched ? matched.id : newName.length >= 2 ? NEW : "";
 
           // Same skin as an earlier card of this batch (same hero and name)?
           const nameKey = `${normalizeSkinName(heroGuesses[imageIndex])}:${normalizeSkinName(newName)}`;
@@ -187,16 +240,29 @@ export function AutoSplitter({
                     r.skinId === NEW &&
                     `${normalizeSkinName(heroGuesses[r.imageIndex])}:${normalizeSkinName(r.newName)}` === nameKey
                 )
-              : built.findIndex((r) => r.skinId === skinId);
+              : libId
+                ? built.findIndex((r) => r.libId === libId)
+                : skinId
+                  ? built.findIndex((r) => r.skinId === skinId)
+                  : -1;
           const duplicateOf = pictureDup >= 0 ? pictureDup : nameDup;
+          const lib = libId ? libById.get(libId) : undefined;
+          const heroGuess = fixedHeroName ?? heroGuesses[imageIndex];
+          const fixNeeded =
+            Boolean(lib) &&
+            newName.length >= 2 &&
+            (normalizeSkinName(lib?.heroName ?? "") !== normalizeSkinName(heroGuess) ||
+              normalizeSkinName(lib?.name ?? "") !== normalizeSkinName(newName));
           built.push({
             imageIndex,
             card,
             preview: preview.toDataURL("image/jpeg", 0.8),
             read: cardReads[i],
             skinId,
+            hash,
+            libId,
             newName,
-            include: duplicateOf < 0 && (matched ? !matched.hasImage : newName.length >= 2),
+            include: duplicateOf < 0 && (libId ? fixNeeded : matched ? !matched.hasImage : newName.length >= 2),
             duplicateOf: duplicateOf >= 0 ? duplicateOf : null,
             duplicateKind: duplicateOf < 0 ? null : pictureDup >= 0 ? "picture" : "name",
             status: "idle",
@@ -220,20 +286,35 @@ export function AutoSplitter({
   const update = (index: number, patch: Partial<Row>) =>
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
 
+  const needsFix = (row: Row) => {
+    const lib = row.libId ? libById.get(row.libId) : undefined;
+    return (
+      Boolean(lib) &&
+      row.newName.trim().length >= 2 &&
+      (normalizeSkinName(lib?.heroName ?? "") !== normalizeSkinName(heroFor(row.imageIndex)) ||
+        normalizeSkinName(lib?.name ?? "") !== normalizeSkinName(row.newName))
+    );
+  };
   const chosen = rows.filter(
     (row) =>
       row.include &&
       row.duplicateOf === null &&
-      row.skinId &&
-      !skinById.get(row.skinId)?.hasImage &&
-      (row.skinId !== NEW || row.newName.trim().length >= 2)
+      (row.libId
+        ? needsFix(row)
+        : row.skinId &&
+          !skinById.get(row.skinId)?.hasImage &&
+          (row.skinId !== NEW || row.newName.trim().length >= 2))
   );
   const keyOf = (row: Row) =>
-    row.skinId === NEW ? `new:${normalizeSkinName(heroFor(row.imageIndex))}:${normalizeSkinName(row.newName)}` : `id:${row.skinId}`;
+    row.libId
+      ? `fix:${row.libId}`
+      : row.skinId === NEW
+        ? `new:${normalizeSkinName(heroFor(row.imageIndex))}:${normalizeSkinName(row.newName)}`
+        : `id:${row.skinId}`;
   const keys = chosen.map(keyOf);
   const duplicated = keys.some((key, i) => keys.indexOf(key) !== i);
   const clashesWithExisting = chosen.some((row) => row.skinId === NEW && existingNames.has(normalizeSkinName(row.newName)));
-  const needsHero = chosen.some((row) => row.skinId === NEW && heroFor(row.imageIndex).length < 2);
+  const needsHero = chosen.some((row) => (row.skinId === NEW || row.libId) && heroFor(row.imageIndex).length < 2);
   const blocked = chosen.length === 0 || duplicated || clashesWithExisting || needsHero;
 
   const saveAll = async () => {
@@ -246,6 +327,22 @@ export function AutoSplitter({
       if (!chosen.includes(row)) continue;
       const img = imagesRef.current[row.imageIndex];
       update(i, { status: "saving", note: undefined });
+
+      // A skin found again by its picture: only its name / hero is corrected.
+      if (row.libId) {
+        try {
+          const result = await fixSkinAction(row.libId, heroFor(row.imageIndex), row.newName);
+          if (!result.ok) update(i, { status: "error", note: result.error });
+          else if (result.status === "same") update(i, { status: "ok", note: "ชื่อถูกต้องอยู่แล้ว" });
+          else {
+            saved++;
+            update(i, { status: "ok", note: result.heroRemoved ? "แก้ชื่อแล้ว (ลบฮีโร่ชื่อผิดที่ว่างแล้ว)" : "แก้ชื่อรายการเดิมแล้ว" });
+          }
+        } catch {
+          update(i, { status: "error", note: "บันทึกไม่สำเร็จ" });
+        }
+        continue;
+      }
 
       // Same size as the skin pictures already added, else the card's own size.
       let outW = row.card.w;
@@ -271,7 +368,7 @@ export function AutoSplitter({
       form.append("image", new File([blob], "skin.jpg", { type: "image/jpeg" }));
       try {
         if (row.skinId === NEW) {
-          const result = await addSkinFromScreenshotAction(heroFor(row.imageIndex), row.newName, form);
+          const result = await addSkinFromScreenshotAction(heroFor(row.imageIndex), row.newName, form, row.hash);
           if (!result.ok) update(i, { status: "error", note: result.error });
           else if (result.status === "skipped") update(i, { status: "ok", note: "มีสกินชื่อนี้อยู่แล้ว ข้ามไป" });
           else {
@@ -279,7 +376,7 @@ export function AutoSplitter({
             update(i, { status: "ok", note: "สร้างสกินใหม่แล้ว" });
           }
         } else {
-          const result = await setSkinImageAction(row.skinId, form);
+          const result = await setSkinImageAction(row.skinId, form, row.hash);
           if (result.error) update(i, { status: "error", note: result.error });
           else {
             saved++;
@@ -388,6 +485,36 @@ export function AutoSplitter({
                         <p className="truncate text-[11px] text-ink-muted" title={row.read}>
                           อ่านได้: {row.read || "—"}
                         </p>
+                        {row.libId ? (
+                          <div className="space-y-1.5 rounded-lg bg-card p-2 text-xs">
+                            <p className="text-ink-muted">
+                              ตรงกับรูปของสกินเดิม: <span className="text-ink">{libById.get(row.libId)?.heroName} / {libById.get(row.libId)?.name}</span>
+                            </p>
+                            <input
+                              value={row.newName}
+                              onChange={(event) => update(i, { newName: event.target.value, include: true })}
+                              disabled={phase !== "review"}
+                              maxLength={80}
+                              className="input py-1.5 text-xs"
+                              placeholder="ชื่อสกินที่ถูกต้อง"
+                            />
+                            {needsFix(row) ? (
+                              row.duplicateOf === null ? (
+                                <label className="flex items-center gap-2 text-ink">
+                                  <input
+                                    type="checkbox"
+                                    checked={row.include}
+                                    disabled={phase !== "review"}
+                                    onChange={(event) => update(i, { include: event.target.checked })}
+                                  />
+                                  แก้ชื่อรายการเดิมเป็นชื่อนี้
+                                </label>
+                              ) : null
+                            ) : (
+                              <p className="text-emerald-300">ชื่อและฮีโร่ถูกต้องอยู่แล้ว (ไม่ต้องแก้)</p>
+                            )}
+                          </div>
+                        ) : (
                         <select
                           value={row.skinId}
                           onChange={(event) => {
@@ -411,6 +538,7 @@ export function AutoSplitter({
                             </option>
                           ))}
                         </select>
+                        )}
                         {row.skinId === NEW ? (
                           <input
                             value={row.newName}
@@ -427,7 +555,7 @@ export function AutoSplitter({
                           <p className="text-xs text-rose-300">
                             {row.duplicateKind === "picture" ? "รูปซ้ำ" : "สกินซ้ำ"}กับใบที่ {row.duplicateOf + 1} (ไม่ใส่ซ้ำ)
                           </p>
-                        ) : skin?.hasImage ? (
+                        ) : row.libId ? null : skin?.hasImage ? (
                           <p className="text-xs text-ink-muted">สกินนี้มีรูปแล้ว (ไม่ทับรูปเดิม)</p>
                         ) : (
                           <label className="flex items-center gap-2 text-xs text-ink">

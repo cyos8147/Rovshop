@@ -16,6 +16,7 @@ import {
   badgeHash,
   cardHash,
   cleanName,
+  evoLevel,
   detectCards,
   hashDistance,
   heroStripCanvas,
@@ -54,6 +55,8 @@ type Row = {
   variantOf: number | null;
   // The name may be incomplete (part of it could not be read clearly).
   unsure: boolean;
+  // EVO level read from the badge ("EVO IV"), "" when unknown or not an EVO card.
+  evo: string;
   status: "idle" | "saving" | "ok" | "error";
   note?: string;
 };
@@ -330,6 +333,7 @@ export function AutoSplitter({
             duplicateOf: duplicateOf >= 0 ? duplicateOf : null,
             variantOf: variantNote ? nameDup : null,
             unsure: Boolean(unsureReads[plan[imageIndex].cardAt[i]]),
+            evo: variantNote || nameDup >= 0 ? evoLevel(img, card) : "",
             duplicateKind: duplicateOf < 0 ? null : pictureDup >= 0 ? "picture" : "name",
             status: "idle",
           });
@@ -353,6 +357,31 @@ export function AutoSplitter({
       // The first card of a group of versions is a version too.
       built.forEach((row) => {
         if (row.variantOf !== null && built[row.variantOf].variantOf === null) built[row.variantOf].variantOf = row.variantOf;
+      });
+      // Name the versions by their EVO level when the badge can be read.
+      const groups = new Map<number, number[]>();
+      built.forEach((row, idx) => {
+        if (row.variantOf === null || row.skinId !== NEW) return;
+        const head = row.variantOf;
+        groups.set(head, [...(groups.get(head) ?? []), idx]);
+      });
+      groups.forEach((members, head) => {
+        if (!members.includes(head)) members.unshift(head);
+        const base = built[head].newName.replace(/ \(\d+\)$/, "");
+        const used = new Set<string>();
+        for (const idx of members) {
+          const row = built[idx];
+          if (!row.evo) row.evo = evoLevel(loaded[row.imageIndex].img, row.card);
+        }
+        for (const idx of members) {
+          const row = built[idx];
+          if (!row.evo) continue;
+          let name = `${base} ${row.evo}`;
+          let n = 2;
+          while (used.has(normalizeSkinName(name)) || existingNames.has(normalizeSkinName(name))) name = `${base} ${row.evo} (${n++})`;
+          used.add(normalizeSkinName(name));
+          row.newName = name;
+        }
       });
       setHeroInputs(heroGuesses);
       setRows(built);
@@ -649,7 +678,11 @@ export function AutoSplitter({
                           <p className="text-[11px] text-rose-300">ชื่ออาจอ่านไม่ครบ ตรวจกับภาพอีกครั้ง</p>
                         ) : null}
                         {row.variantOf !== null && row.skinId === NEW ? (
-                          <p className="text-[11px] text-gold-soft">หลายเลเวล/หลายแบบ: แก้ชื่อใส่เลข EVO ได้ เช่น {row.newName.replace(/ \(\d+\)$/, "")} EVO IV</p>
+                          <p className="text-[11px] text-gold-soft">
+                            {row.evo
+                              ? `อ่านเลเวลจากป้ายได้ ${row.evo} (ตรวจกับรูปอีกครั้ง)`
+                              : "หลายเลเวล/หลายแบบ: อ่านเลเวลไม่ได้ แก้ชื่อใส่เลข EVO เองได้"}
+                          </p>
                         ) : null}
                         {row.skinId === NEW ? (
                           <input

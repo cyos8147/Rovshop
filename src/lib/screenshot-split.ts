@@ -323,6 +323,116 @@ export function badgeHash(source: CanvasImageSource, card: Rect): string {
   return grey.map((v) => (v > mean ? "1" : "0")).join("");
 }
 
+// The EVO level of a card from its badge, or "" when it cannot be told.
+// Each level has its own badge: I light blue, II-IV dark teal with a numeral
+// below "EVO" (told apart by how much numeral there is), V dark brown, and the
+// base form a flat salmon badge with no numeral.
+export function evoLevel(source: CanvasImageSource, card: Rect): string {
+  const W = 360;
+  const sw = card.w * 0.6;
+  const sh = card.h * 0.3;
+  const H = Math.max(1, Math.round((sh / sw) * W));
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return "";
+  ctx.drawImage(source, card.x + card.w * 0.4, card.y, sw, sh, 0, 0, W, H);
+  const d = ctx.getImageData(0, 0, W, H).data;
+  const bright = new Uint8Array(W * H);
+  for (let p = 0, i = 0; p < W * H; p++, i += 4) bright[p] = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2] > 175 ? 1 : 0;
+
+  // Connected bright blobs.
+  type Blob = { x0: number; x1: number; y0: number; y1: number; n: number };
+  const label = new Int32Array(W * H).fill(-1);
+  const blobs: Blob[] = [];
+  const queue: number[] = [];
+  for (let start = 0; start < W * H; start++) {
+    if (!bright[start] || label[start] >= 0) continue;
+    const b: Blob = { x0: W, x1: 0, y0: H, y1: 0, n: 0 };
+    label[start] = blobs.length;
+    queue.length = 0;
+    queue.push(start);
+    while (queue.length) {
+      const p = queue.pop()!;
+      const x = p % W;
+      const y = (p - x) / W;
+      b.n++;
+      if (x < b.x0) b.x0 = x;
+      if (x > b.x1) b.x1 = x;
+      if (y < b.y0) b.y0 = y;
+      if (y > b.y1) b.y1 = y;
+      for (const q of [p - 1, p + 1, p - W, p + W]) {
+        if (q < 0 || q >= W * H) continue;
+        if ((q === p - 1 && x === 0) || (q === p + 1 && x === W - 1)) continue;
+        if (bright[q] && label[q] < 0) {
+          label[q] = blobs.length;
+          queue.push(q);
+        }
+      }
+    }
+    blobs.push(b);
+  }
+  const letters = blobs
+    .filter((b) => b.n > 25)
+    .map((b) => ({ ...b, w: b.x1 - b.x0 + 1, h: b.y1 - b.y0 + 1, cx: (b.x0 + b.x1) / 2, cy: (b.y0 + b.y1) / 2 }))
+    .filter((b) => b.h >= H * 0.18 && b.h <= H * 0.5 && b.w <= b.h * 1.4 && b.w >= b.h * 0.35);
+
+  // The three letters E V O: same height, on one line, side by side.
+  let best: { score: number; E: (typeof letters)[number]; V: (typeof letters)[number]; O: (typeof letters)[number] } | null = null;
+  for (const E of letters)
+    for (const V of letters) {
+      if (V.cx <= E.cx) continue;
+      for (const O of letters) {
+        if (O.cx <= V.cx) continue;
+        const hs = [E.h, V.h, O.h];
+        if (Math.max(...hs) > 1.3 * Math.min(...hs)) continue;
+        if (Math.max(Math.abs(E.cy - V.cy), Math.abs(V.cy - O.cy)) > 0.2 * Math.min(...hs)) continue;
+        const g1 = V.x0 - E.x1;
+        const g2 = O.x0 - V.x1;
+        if (g1 < -3 || g2 < -3 || g1 > 0.4 * E.h || g2 > 0.4 * E.h || O.w < 0.6 * O.h) continue;
+        const score = E.h + V.h + O.h;
+        if (!best || score > best.score) best = { score, E, V, O };
+      }
+    }
+  if (!best) return "";
+  const { E, V, O } = best;
+  const th = (E.h + V.h + O.h) / 3;
+
+  // Badge colour, just outside the E and the O.
+  const samples: number[][] = [];
+  for (const x of [Math.round(E.x0 - 0.25 * th), Math.round(O.x1 + 0.25 * th)])
+    for (const dy of [-2, 0, 2]) {
+      const y = Math.round(E.cy) + dy;
+      if (x >= 0 && x < W && y >= 0 && y < H) {
+        const i = (y * W + x) * 4;
+        samples.push([d[i], d[i + 1], d[i + 2]]);
+      }
+    }
+  if (samples.length === 0) return "";
+  const med = [0, 1, 2].map((c) => samples.map((s) => s[c]).sort((a, b) => a - b)[Math.floor(samples.length / 2)]);
+  const [r, g, b] = med;
+  const lightBlue = b > 135 && b > r + 50 && r > 40 && r < 110;
+  const teal = r < 40 && b > 60 && b > r + 40;
+  const brown = r > 70 && r < 125 && g < 55 && b < 35;
+  const salmon = r > 125 && r < 185 && g > 45 && g < 85 && b > 45 && b < 85;
+  if (lightBlue) return "EVO I";
+  if (brown) return "EVO V";
+  if (salmon) return "EVO";
+  if (!teal) return "";
+
+  // II, III or IV: the amount of numeral under the V of "EVO".
+  let numeral = 0;
+  const yTop = Math.round(Math.max(E.y1, V.y1, O.y1) + 0.04 * th);
+  const yBottom = Math.round(Math.min(H, Math.max(E.y1, V.y1, O.y1) + 0.9 * th));
+  for (let y = yTop; y < yBottom; y++)
+    for (let x = Math.max(0, Math.round(V.cx - th)); x < Math.min(W, Math.round(V.cx + th)); x++) numeral += bright[y * W + x];
+  const k = numeral / (th * th);
+  if (typeof localStorage !== "undefined" && localStorage.getItem("ocrDebug")) console.log("EVOK", k.toFixed(3), Math.round(th));
+  if (k < 0.08) return "";
+  return k < 0.14 ? "EVO II" : k < 0.175 ? "EVO IV" : "EVO III";
+}
+
 // ---- Same picture twice -----------------------------------------------------
 
 // A tiny fingerprint of a card's picture (8x8 grey, above / below its average),

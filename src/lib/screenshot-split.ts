@@ -30,9 +30,13 @@ function runs(flags: boolean[], maxHole: number): [number, number][] {
 }
 
 // Returns the card rectangles in the image's own pixel coordinates, in reading
-// order. Only cards of the usual size are returned (cut-off ones at the edge
-// of the screenshot are left out).
-export function detectCards(source: CanvasImageSource, naturalW: number, naturalH: number): Rect[] {
+// order, plus where the card area starts (gridTop, or null). Only cards of the
+// usual size are returned (cut-off ones at the edge of the screenshot are left out).
+export function detectCards(
+  source: CanvasImageSource,
+  naturalW: number,
+  naturalH: number
+): { cards: Rect[]; gridTop: number | null } {
   const scale = Math.min(1, ANALYSIS_WIDTH / naturalW);
   const W = Math.max(1, Math.round(naturalW * scale));
   const H = Math.max(1, Math.round(naturalH * scale));
@@ -40,7 +44,7 @@ export function detectCards(source: CanvasImageSource, naturalW: number, natural
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return [];
+  if (!ctx) return { cards: [], gridTop: null };
   ctx.drawImage(source, 0, 0, W, H);
   const data = ctx.getImageData(0, 0, W, H).data;
 
@@ -82,6 +86,7 @@ export function detectCards(source: CanvasImageSource, naturalW: number, natural
     rowFlags.push(count / W > 0.3);
   }
   const rects: Rect[] = [];
+  let gridTopScaled: number | null = null;
   for (const [y0, y1] of runs(rowFlags, 3)) {
     if (y1 - y0 < H * 0.05) continue;
     const colFlags: boolean[] = [];
@@ -90,25 +95,33 @@ export function detectCards(source: CanvasImageSource, naturalW: number, natural
       for (let y = y0; y <= y1; y++) count += mask[y * W + x];
       colFlags.push(count / (y1 - y0 + 1) > 0.5);
     }
-    for (const [x0, x1] of runs(colFlags, 3)) {
-      rects.push({ x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 });
+    const band = runs(colFlags, 3).map(([x0, x1]) => ({ x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }));
+    rects.push(...band);
+    // A row of cards = two or more blocks of about the same width.
+    if (gridTopScaled === null && band.length >= 2) {
+      const first = band[0].w;
+      if (first > W * 0.1 && band.every((r) => Math.abs(r.w - first) / first < 0.15)) gridTopScaled = y0;
     }
   }
 
   // Keep card-shaped rectangles of the biggest common size.
   const shaped = rects.filter((r) => r.w / r.h > 0.4 && r.w / r.h < 1.8 && r.w * r.h > W * H * 0.015);
-  if (shaped.length === 0) return [];
+  const gridTop = gridTopScaled === null ? null : Math.round(gridTopScaled / scale);
+  if (shaped.length === 0) return { cards: [], gridTop };
   const ref = shaped.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
   const cards = shaped.filter((r) => Math.abs(r.w - ref.w) / ref.w < 0.12 && Math.abs(r.h - ref.h) / ref.h < 0.12);
 
   cards.sort((a, b) => (Math.abs(a.y - b.y) > ref.h * 0.4 ? a.y - b.y : a.x - b.x));
   const inset = Math.max(1, Math.round(ref.w * 0.006));
-  return cards.map((r) => ({
-    x: Math.round((r.x + inset) / scale),
-    y: Math.round((r.y + inset) / scale),
-    w: Math.round((r.w - inset * 2) / scale),
-    h: Math.round((r.h - inset * 2) / scale),
-  }));
+  return {
+    gridTop,
+    cards: cards.map((r) => ({
+      x: Math.round((r.x + inset) / scale),
+      y: Math.round((r.y + inset) / scale),
+      w: Math.round((r.w - inset * 2) / scale),
+      h: Math.round((r.h - inset * 2) / scale),
+    })),
+  };
 }
 
 // ---- 2. Read the name ------------------------------------------------------
@@ -138,6 +151,43 @@ export function nameStripCanvas(source: CanvasImageSource, card: Rect): HTMLCanv
   }
   ctx.putImageData(img, 0, 0);
   return canvas;
+}
+
+// The hero's name sits in the bar just above the card area (left of the page
+// counter). Returns that strip as black text on white, or null.
+export function heroStripCanvas(source: CanvasImageSource, naturalW: number, naturalH: number, gridTop: number | null) {
+  if (gridTop === null) return null;
+  const y0 = Math.max(0, gridTop - naturalH * 0.058);
+  const h = naturalH * 0.046;
+  const x0 = naturalW * 0.11;
+  const w = naturalW * 0.55;
+  if (h < 10 || w < 10) return null;
+  const outW = 800;
+  const outH = Math.max(1, Math.round((h / w) * outW));
+  const canvas = document.createElement("canvas");
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(source, x0, y0, w, h, 0, 0, outW, outH);
+  const img = ctx.getImageData(0, 0, outW, outH);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const v = Math.max(d[i], d[i + 1], d[i + 2]) > 150 ? 0 : 255;
+    d[i] = d[i + 1] = d[i + 2] = v;
+    d[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
+// Tidies OCR output into a usable name: letters, digits, space and : ' - .
+export function cleanName(read: string): string {
+  return read
+    .replace(/[^A-Za-z0-9 :'.-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s:.'-]+|[\s:.'-]+$/g, "")
+    .trim();
 }
 
 // ---- 3. Match names --------------------------------------------------------
@@ -213,8 +263,16 @@ export async function readNames(
     });
     const reads: string[] = [];
     for (let i = 0; i < strips.length; i++) {
-      const { data } = await worker.recognize(strips[i]);
-      reads.push(data.text.replace(/\s+/g, " ").trim());
+      const { data } = await worker.recognize(strips[i], {}, { text: true, blocks: true });
+      // Drop low-confidence words (stray marks from the artwork behind the text).
+      const words = (data.blocks ?? [])
+        .flatMap((block) => block.paragraphs)
+        .flatMap((paragraph) => paragraph.lines)
+        .flatMap((line) => line.words)
+        .filter((word) => word.confidence >= 60 && /[A-Za-z0-9]/.test(word.text))
+        .map((word) => word.text);
+      const text = words.length > 0 ? words.join(" ") : data.text;
+      reads.push(text.replace(/\s+/g, " ").trim());
       onProgress?.(i + 1, strips.length);
     }
     return reads;

@@ -374,3 +374,73 @@ export async function setSkinImageAction(skinId: string, formData: FormData): Pr
     return { error: "ไม่พบสกินนี้ อาจถูกลบไปแล้ว" };
   }
 }
+
+export type ScreenshotSkinResult = { ok: boolean; status?: "created" | "updated" | "skipped"; heroCreated?: boolean; error?: string };
+
+// One card from a screenshot: finds (or creates) the hero by name, then
+// creates the skin with this picture. A skin with the same name is skipped, or
+// gets the new picture when `replace` is set.
+export async function addSkinFromScreenshotAction(
+  heroName: string,
+  skinName: string,
+  replace: boolean,
+  formData: FormData
+): Promise<ScreenshotSkinResult> {
+  await requireAdmin();
+
+  const clean = (value: string) => value.replace(/[|\r\n]/g, " ").replace(/\s+/g, " ").trim();
+  const heroParsed = heroSchema.shape.name.safeParse(clean(heroName));
+  if (!heroParsed.success) return { ok: false, error: heroParsed.error.issues[0]?.message ?? "ชื่อฮีโร่ไม่ถูกต้อง" };
+  const skinParsed = skinSchema.shape.name.safeParse(clean(skinName));
+  if (!skinParsed.success) return { ok: false, error: skinParsed.error.issues[0]?.message ?? "ชื่อสกินไม่ถูกต้อง" };
+
+  let imageUrl: string | null;
+  try {
+    imageUrl = await optionalImage(formData);
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "อัปโหลดรูปภาพไม่สำเร็จ" };
+  }
+  if (!imageUrl) return { ok: false, error: "ไม่มีรูป" };
+
+  let hero = await prisma.hero.findFirst({
+    where: { name: { equals: heroParsed.data, mode: "insensitive" } },
+    select: { id: true },
+  });
+  const heroCreated = !hero;
+  if (!hero) {
+    try {
+      hero = await prisma.hero.create({ data: { name: heroParsed.data }, select: { id: true } });
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      hero = await prisma.hero.findFirst({
+        where: { name: { equals: heroParsed.data, mode: "insensitive" } },
+        select: { id: true },
+      });
+      if (!hero) return { ok: false, error: "เพิ่มฮีโร่ไม่สำเร็จ" };
+    }
+  }
+
+  const existing = await prisma.skin.findFirst({
+    where: { heroId: hero.id, name: { equals: skinParsed.data, mode: "insensitive" } },
+    select: { id: true },
+  });
+  let status: "created" | "updated" | "skipped";
+  if (existing) {
+    if (!replace) {
+      revalidateSkinPages(hero.id);
+      return { ok: true, status: "skipped", heroCreated };
+    }
+    await prisma.skin.update({ where: { id: existing.id }, data: { imageUrl } });
+    status = "updated";
+  } else {
+    try {
+      await prisma.skin.create({ data: { name: skinParsed.data, tier: "NORMAL", heroId: hero.id, imageUrl } });
+    } catch (error) {
+      if (isUniqueViolation(error)) return { ok: true, status: "skipped", heroCreated };
+      throw error;
+    }
+    status = "created";
+  }
+  revalidateSkinPages(hero.id);
+  return { ok: true, status, heroCreated };
+}

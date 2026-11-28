@@ -3,12 +3,16 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { addHeroSkinAction, importCatalogAction } from "@/lib/actions/skins";
 import { AddHeroSkinForm, ImportCatalogForm } from "@/components/SkinAdmin";
+import { AutoSplitter } from "@/components/AutoSplitter";
 
 export const metadata: Metadata = { title: "คลังสกิน" };
 
 export default async function AdminSkinsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
   const query = typeof q === "string" ? q.trim().slice(0, 60) : "";
+
+  // A picture already on the site: new pictures are saved at its size.
+  const refUrl = (await prisma.skin.findFirst({ where: { imageUrl: { not: null } }, select: { imageUrl: true } }))?.imageUrl ?? null;
 
   const [heroes, missingByHero] = await Promise.all([
     prisma.hero.findMany({
@@ -68,6 +72,8 @@ export default async function AdminSkinsPage({ searchParams }: { searchParams: P
           พบ {heroes.length} ฮีโร่ สำหรับ &quot;{query}&quot; — กดที่ฮีโร่เพื่อใส่รูปสกิน
         </p>
       ) : null}
+
+      <AutoSplitter skins={[]} refUrl={refUrl} />
 
       <AddHeroSkinForm action={addHeroSkinAction} />
 

@@ -552,13 +552,16 @@ export function matchCards(reads: string[], skinNames: string[], minScore = 0.55
 
 // ---- 4. OCR worker ---------------------------------------------------------
 
-export async function readNames(
-  strips: HTMLCanvasElement[],
-  onProgress?: (done: number, total: number) => void,
-  singleLine: boolean[] = [],
-  // Filled with true for a reading that may be incomplete (a word was too unclear to keep).
-  unsure: boolean[] = []
-): Promise<string[]> {
+export type NameReading = {
+  text: string;
+  // A word was too unclear to keep, or the name ends in a colon: it may be incomplete.
+  unsure: boolean;
+  // Lowest confidence (0-100) of the words that were kept; 0 when nothing was kept.
+  minConfidence: number;
+};
+
+// One OCR worker that can read many strips (create once, read, then close).
+export async function createNameReader() {
   const { createWorker } = await import("tesseract.js");
   const worker = await createWorker("eng", 1, {
     workerPath: "/ocr/worker.min.js",
@@ -566,41 +569,68 @@ export async function readNames(
     langPath: "/ocr/lang",
     gzip: true,
   });
-  try {
-    await worker.setParameters({
-      tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 :'\u2019-.",
-    });
-    const reads: string[] = [];
-    for (let i = 0; i < strips.length; i++) {
-      await worker.setParameters({ tessedit_pageseg_mode: (singleLine[i] ? "7" : "6") as never });
-      const { data } = await worker.recognize(strips[i], {}, { text: true, blocks: true });
+  await worker.setParameters({
+    tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 :'\u2019-.",
+  });
+  let mode = "";
+  let count = 0;
+  return {
+    async read(strip: HTMLCanvasElement, singleLine = false): Promise<NameReading> {
+      const want = singleLine ? "7" : "6";
+      if (mode !== want) {
+        await worker.setParameters({ tessedit_pageseg_mode: want as never });
+        mode = want;
+      }
+      const { data } = await worker.recognize(strip, {}, { text: true, blocks: true });
       const all = (data.blocks ?? [])
         .flatMap((block) => block.paragraphs)
         .flatMap((paragraph) => paragraph.lines)
         .flatMap((line) => line.words);
       if (typeof localStorage !== "undefined" && localStorage.getItem("ocrDebug")) {
-        console.log("OCR", i, all.map((word) => `${word.text}(${Math.round(word.confidence)})`).join(" "));
+        console.log("OCR", count, all.map((word) => `${word.text}(${Math.round(word.confidence)})`).join(" "));
       }
+      count++;
       // Keep confident words. Short fragments (1-3 characters) must be very
       // confident: they are usually stray marks from the artwork behind the text.
-      const words = all
-        .filter((word) => {
-          const letters = (word.text.match(/[A-Za-z0-9]/g) ?? []).length;
-          if (letters === 0) return word.confidence >= 60;
-          if (letters <= 3) return word.confidence >= 85;
-          return word.confidence >= 20;
-        })
-        .map((word) => word.text);
-      unsure[i] = all.some((word) => {
-        const letters = (word.text.match(/[A-Za-z]/g) ?? []).length;
-        return letters >= 3 && word.confidence < 20;
-      }) || /:\s*$/.test(words.join(" "));
-      const text = words.length > 0 ? words.join(" ") : data.text;
-      reads.push(text.replace(/\s+/g, " ").trim());
+      const kept = all.filter((word) => {
+        const letters = (word.text.match(/[A-Za-z0-9]/g) ?? []).length;
+        if (letters === 0) return word.confidence >= 60;
+        if (letters <= 3) return word.confidence >= 85;
+        return word.confidence >= 20;
+      });
+      const words = kept.map((word) => word.text);
+      const unsure =
+        all.some((word) => {
+          const letters = (word.text.match(/[A-Za-z]/g) ?? []).length;
+          return letters >= 3 && word.confidence < 20;
+        }) || /:\s*$/.test(words.join(" "));
+      const text = (words.length > 0 ? words.join(" ") : data.text).replace(/\s+/g, " ").trim();
+      // When nothing passed the filter, the fallback text is the whole (unclear) reading.
+      const confidences = (kept.length > 0 ? kept : all).map((word) => word.confidence);
+      return { text, unsure, minConfidence: confidences.length ? Math.min(...confidences) : 0 };
+    },
+    close: () => worker.terminate(),
+  };
+}
+
+export async function readNames(
+  strips: HTMLCanvasElement[],
+  onProgress?: (done: number, total: number) => void,
+  singleLine: boolean[] = [],
+  // Filled with true for a reading that may be incomplete (a word was too unclear to keep).
+  unsure: boolean[] = []
+): Promise<string[]> {
+  const reader = await createNameReader();
+  try {
+    const reads: string[] = [];
+    for (let i = 0; i < strips.length; i++) {
+      const reading = await reader.read(strips[i], singleLine[i]);
+      unsure[i] = reading.unsure;
+      reads.push(reading.text);
       onProgress?.(i + 1, strips.length);
     }
     return reads;
   } finally {
-    await worker.terminate();
+    await reader.close();
   }
 }

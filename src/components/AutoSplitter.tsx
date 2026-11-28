@@ -262,8 +262,17 @@ export function AutoSplitter({
       const rawGuesses = plan.map((p) => {
         const guess = p.heroAt >= 0 ? cleanName(reads[p.heroAt] ?? "") : "";
         const cardNames = p.cardAt.map((at) => reads[at] ?? "");
-        const looksLikeSkin = guess.split(" ").length > 2 || cardNames.some((name) => nameScore(guess, name) >= 0.6);
-        return looksLikeSkin ? "" : guess;
+        const knownHero = guess.length >= 3 && Boolean(closest(guess, ROV_HERO_NAMES));
+        const looksLikeSkin =
+          guess.split(" ").length > 2 || (!knownHero && cardNames.some((name) => nameScore(guess, name) >= 0.6));
+        if (!looksLikeSkin && guess.length >= 3) return guess;
+        // Header not read: a hero named in a skin name ("Auto Archon: Billow" -> Billow).
+        const words = cardNames.map((name) => ` ${normalizeSkinName(name)} `);
+        return (
+          ROV_HERO_NAMES.find(
+            (hero) => hero.length >= 4 && words.some((w) => w.includes(` ${normalizeSkinName(hero)} `))
+          ) ?? ""
+        );
       });
       // A picture whose header could not be read takes the most common reading of the others.
       const common = rawGuesses
@@ -300,7 +309,12 @@ export function AutoSplitter({
           // Two cards in ONE screenshot are always two different cards, so only
           // cards from the other screenshots are compared.
           const pictureDup = hashes.findIndex(
-            (_, k) => built[k].imageIndex !== imageIndex && sameArt(k) && hashDistance(badges[k], badge) <= 22
+            (_, k) => {
+              if (built[k].imageIndex === imageIndex || !sameArt(k) || hashDistance(badges[k], badge) > 22) return false;
+              const a = evoLevel(img, card);
+              const b = evoLevel(loaded[built[k].imageIndex].img, built[k].card);
+              return !a || !b || a === b;
+            }
           );
           hashes.push(hash);
           badges.push(badge);
@@ -449,8 +463,25 @@ export function AutoSplitter({
         if (row.skinId !== NEW || row.duplicateOf !== null) return;
         const hero = normalizeSkinName(fixedHeroName ?? heroGuesses[row.imageIndex]);
         const own = library.filter((l) => normalizeSkinName(l.heroName) === hero && !usedIds.has(l.id));
+        // A single card of a skin saved with EVO levels (the other levels are in
+        // screenshots not sent this time) is named by its own badge too.
+        const levelsOf = (base: string) => (l: LibrarySkin) =>
+          normalizeSkinName(l.name).startsWith(`${normalizeSkinName(base)} evo`);
+        if (row.variantOf === null && library.some((l) => normalizeSkinName(l.heroName) === hero && levelsOf(row.newName)(l))) {
+          const level = evoLevel(loaded[row.imageIndex].img, row.card);
+          if (level) row.newName = `${row.newName} ${level}`;
+        }
+        // "<skin> (k)": a level that cannot be read; the number depends on the batch, so
+        // any saved "<skin> (j)" of this hero is the same kind of entry.
+        const numbered = row.newName.match(/^(.*) \(\d+\)$/);
         const existing =
           own.find((l) => normalizeSkinName(l.name) === normalizeSkinName(row.newName)) ??
+          (numbered
+            ? own.find((l) => {
+                const m = l.name.match(/^(.*) \(\d+\)$/);
+                return Boolean(m && normalizeSkinName(m[1]) === normalizeSkinName(numbered[1]));
+              })
+            : undefined) ??
           (row.variantOf === null ? own.find((l) => keepsSavedName(l.name, row.newName, row.unsure)) : undefined);
         if (!existing) return;
         usedIds.add(existing.id);
@@ -519,7 +550,21 @@ export function AutoSplitter({
   const leftovers = rows.length
     ? library.filter((l) => batchHeroes.has(normalizeSkinName(l.heroName)) && !referenced.has(l.id))
     : [];
-  const toDelete = leftovers.filter((l) => !keepIds.has(l.id));
+  // A leftover is ticked for deletion only when it copies a card of this batch (same
+  // name, a misread of its name, or the same picture). One that is simply not in
+  // the screenshots is kept unless ticked: the screenshots may not show every skin.
+  const isCopy = (l: LibrarySkin) =>
+    rows.some((row) => {
+      if (row.duplicateOf !== null || normalizeSkinName(heroFor(row.imageIndex)) !== normalizeSkinName(l.heroName)) return false;
+      if (normalizeSkinName(row.newName) === normalizeSkinName(l.name)) return true;
+      if (VERSIONED.test(l.name) || VERSIONED.test(row.newName)) return false;
+      return (
+        nameSimilarity(row.newName, l.name) >= 0.8 ||
+        Boolean(l.imageHash && row.hash && hashDistance(l.imageHash, row.hash) <= 4)
+      );
+    });
+  // keepIds: leftovers whose suggested tick was changed by the admin.
+  const toDelete = leftovers.filter((l) => isCopy(l) !== keepIds.has(l.id));
   const blocked = (chosen.length === 0 && toDelete.length === 0) || duplicated || clashesWithExisting || needsHero;
 
   const saveAll = async () => {
@@ -527,16 +572,24 @@ export function AutoSplitter({
     setPhase("saving");
     setMessage(null);
     let saved = 0;
-    // Wrong entries go first, so their names are free for the corrected ones.
+    // Wrong entries whose names a new skin needs go first; the rest only after every
+    // save worked, so a failed save never leaves the hero with fewer skins.
     let deletedCount = 0;
-    if (toDelete.length > 0) {
+    let failed = false;
+    const fail = (i: number, patch: Partial<Row>) => {
+      failed = true;
+      update(i, patch);
+    };
+    const newNames = new Set(chosen.filter((row) => row.skinId === NEW).map((row) => normalizeSkinName(row.newName)));
+    const removeSkins = async (list: LibrarySkin[]) => {
+      if (list.length === 0) return;
       try {
-        const result = await deleteSkinsAction(toDelete.map((l) => l.id));
-        deletedCount = result.deleted;
+        deletedCount += (await deleteSkinsAction(list.map((l) => l.id))).deleted;
       } catch {
-        /* reported below */
+        failed = true;
       }
-    }
+    };
+    await removeSkins(toDelete.filter((l) => newNames.has(normalizeSkinName(l.name))));
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       if (!chosen.includes(row)) continue;
@@ -547,14 +600,14 @@ export function AutoSplitter({
       if (row.libId) {
         try {
           const result = await fixSkinAction(row.libId, heroFor(row.imageIndex), row.newName);
-          if (!result.ok) update(i, { status: "error", note: result.error });
+          if (!result.ok) fail(i, { status: "error", note: result.error });
           else if (result.status === "same") update(i, { status: "ok", note: "ชื่อถูกต้องอยู่แล้ว" });
           else {
             saved++;
             update(i, { status: "ok", note: result.heroRemoved ? "แก้ชื่อแล้ว (ลบฮีโร่ชื่อผิดที่ว่างแล้ว)" : "แก้ชื่อรายการเดิมแล้ว" });
           }
         } catch {
-          update(i, { status: "error", note: "บันทึกไม่สำเร็จ" });
+          fail(i, { status: "error", note: "บันทึกไม่สำเร็จ" });
         }
         continue;
       }
@@ -576,7 +629,7 @@ export function AutoSplitter({
       canvas.getContext("2d")?.drawImage(img, row.card.x, row.card.y, row.card.w, row.card.h, 0, 0, outW, outH);
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
       if (!blob) {
-        update(i, { status: "error", note: "ตัดรูปไม่สำเร็จ" });
+        fail(i, { status: "error", note: "ตัดรูปไม่สำเร็จ" });
         continue;
       }
       const form = new FormData();
@@ -584,7 +637,7 @@ export function AutoSplitter({
       try {
         if (row.skinId === NEW) {
           const result = await addSkinFromScreenshotAction(heroFor(row.imageIndex), row.newName, form, row.hash);
-          if (!result.ok) update(i, { status: "error", note: result.error });
+          if (!result.ok) fail(i, { status: "error", note: result.error });
           else if (result.status === "skipped") update(i, { status: "ok", note: "มีสกินชื่อนี้อยู่แล้ว ข้ามไป" });
           else {
             saved++;
@@ -592,15 +645,18 @@ export function AutoSplitter({
           }
         } else {
           const result = await setSkinImageAction(row.skinId, form, row.hash);
-          if (result.error) update(i, { status: "error", note: result.error });
+          if (result.error) fail(i, { status: "error", note: result.error });
           else {
             saved++;
             update(i, { status: "ok", note: "ใส่รูปแล้ว" });
           }
         }
       } catch {
-        update(i, { status: "error", note: "บันทึกไม่สำเร็จ" });
+        fail(i, { status: "error", note: "บันทึกไม่สำเร็จ" });
       }
+    }
+    if (!failed) {
+      await removeSkins(toDelete.filter((l) => !newNames.has(normalizeSkinName(l.name))));
     }
     setPhase("done");
     setMessage({
@@ -840,10 +896,10 @@ export function AutoSplitter({
           {leftovers.length > 0 ? (
             <div className="space-y-2 rounded-xl border border-border bg-bg-soft p-3">
               <h3 className="text-sm font-semibold text-ink">
-                สกินที่ไม่อยู่ในภาพที่ส่ง จะถูกลบ {toDelete.length} จาก {leftovers.length}
+                สกินในคลังที่ไม่เจอในภาพ {leftovers.length} รายการ · จะลบ {toDelete.length}
               </h3>
               <p className="text-xs text-ink-muted">
-                ระบบติ๊กไว้ให้ลบ เพื่อให้ฮีโร่ตรงกับภาพที่ส่ง ถ้าคุณแคปมาไม่ครบทุกการ์ด ให้เอาติ๊กออกจากอันที่ยังต้องการเก็บ
+                ระบบติ๊กลบให้เองเฉพาะอันที่ซ้ำกับการ์ดในภาพ (ชื่อซ้ำ ชื่ออ่านเพี้ยน หรือรูปเดียวกัน) อันอื่นไม่ลบ เผื่อแคปมาไม่ครบ ถ้าส่งครบทุกการ์ดแล้วและอันไหนไม่มีจริง ให้ติ๊กเอง
               </p>
               <ul className="grid gap-1 sm:grid-cols-2">
                 {leftovers.map((l) => (
@@ -851,12 +907,12 @@ export function AutoSplitter({
                     <label className="flex items-center gap-2 text-xs text-ink">
                       <input
                         type="checkbox"
-                        checked={!keepIds.has(l.id)}
+                        checked={toDelete.includes(l)}
                         disabled={phase !== "review"}
-                        onChange={(event) =>
+                        onChange={() =>
                           setKeepIds((current) => {
                             const next = new Set(current);
-                            if (event.target.checked) next.delete(l.id);
+                            if (next.has(l.id)) next.delete(l.id);
                             else next.add(l.id);
                             return next;
                           })

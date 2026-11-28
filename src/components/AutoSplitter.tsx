@@ -13,6 +13,7 @@ import {
 import { normalizeSkinName } from "@/lib/skin-name";
 import { ROV_HERO_NAMES } from "@/lib/rov-heroes";
 import {
+  badgeHash,
   cardHash,
   cleanName,
   detectCards,
@@ -49,6 +50,10 @@ type Row = {
   // Index of an earlier card (over all the pictures) that is the same skin.
   duplicateOf: number | null;
   duplicateKind: "picture" | "name" | null;
+  // One of several levels/versions of the same skin (same name, different picture).
+  variantOf: number | null;
+  // The name may be incomplete (part of it could not be read clearly).
+  unsure: boolean;
   status: "idle" | "saving" | "ok" | "error";
   note?: string;
 };
@@ -148,11 +153,12 @@ export function AutoSplitter({
         return { heroAt, cardAt };
       });
       let reads: string[] = strips.map(() => "");
+      const unsureReads: boolean[] = [];
       let readFailed = false;
       try {
         setProgress(`กำลังอ่านชื่อ 0/${strips.length}`);
         const singleLine = strips.map((_, k) => plan.some((p) => p.heroAt === k));
-        reads = await readNames(strips, (done, total) => setProgress(`กำลังอ่านชื่อ ${done}/${total}`), singleLine);
+        reads = await readNames(strips, (done, total) => setProgress(`กำลังอ่านชื่อ ${done}/${total}`), singleLine, unsureReads);
       } catch {
         readFailed = true;
       }
@@ -222,6 +228,7 @@ export function AutoSplitter({
       const heroGuesses = rawGuesses.map((g) => snap(g.length >= 3 ? g : (common ?? g)));
       const built: Row[] = [];
       const hashes: string[] = [];
+      const badges: string[] = [];
       loaded.forEach(({ img, cards }, imageIndex) => {
         const cardReads = plan[imageIndex].cardAt.map((at) => reads[at] ?? "");
         const matches = matchCards(
@@ -230,8 +237,13 @@ export function AutoSplitter({
         );
         cards.forEach((card, i) => {
           const hash = cardHash(img, card);
-          const pictureDup = hashes.findIndex((h) => h && hash && hashDistance(h, hash) <= 4);
+          const badge = badgeHash(img, card);
+          // Same picture = same artwork AND the same badge corner: the levels of an
+          // evolving (EVO) skin share the artwork and differ only in the badge.
+          const sameArt = (k: number) => Boolean(hashes[k] && hash && hashDistance(hashes[k], hash) <= 4);
+          const pictureDup = hashes.findIndex((_, k) => sameArt(k) && hashDistance(badges[k], badge) <= 22);
           hashes.push(hash);
+          badges.push(badge);
 
           const preview = document.createElement("canvas");
           preview.width = 240;
@@ -280,7 +292,24 @@ export function AutoSplitter({
                 : skinId
                   ? built.findIndex((r) => r.skinId === skinId)
                   : -1;
-          const duplicateOf = pictureDup >= 0 ? pictureDup : nameDup;
+          // Same name but a different picture (e.g. the EVO levels of one skin): keep it as
+          // its own skin with a number; the admin can type the level instead.
+          let variantNote = false;
+          if (pictureDup < 0 && nameDup >= 0 && skinId === NEW) {
+            const base = newName;
+            let k = 2;
+            const taken = (name: string) =>
+              built.some(
+                (r) =>
+                  r.skinId === NEW &&
+                  normalizeSkinName(heroGuesses[r.imageIndex]) === normalizeSkinName(heroGuesses[imageIndex]) &&
+                  normalizeSkinName(r.newName) === normalizeSkinName(name)
+              ) || existingNames.has(normalizeSkinName(name));
+            while (taken(`${base} (${k})`)) k++;
+            newName = `${base} (${k})`;
+            variantNote = true;
+          }
+          const duplicateOf = pictureDup >= 0 ? pictureDup : variantNote ? -1 : nameDup;
           const lib = libId ? libById.get(libId) : undefined;
           const heroGuess = fixedHeroName ?? heroGuesses[imageIndex];
           const fixNeeded =
@@ -299,6 +328,8 @@ export function AutoSplitter({
             newName,
             include: duplicateOf < 0 && (libId ? fixNeeded : matched ? true : newName.length >= 2),
             duplicateOf: duplicateOf >= 0 ? duplicateOf : null,
+            variantOf: variantNote ? nameDup : null,
+            unsure: Boolean(unsureReads[plan[imageIndex].cardAt[i]]),
             duplicateKind: duplicateOf < 0 ? null : pictureDup >= 0 ? "picture" : "name",
             status: "idle",
           });
@@ -318,6 +349,10 @@ export function AutoSplitter({
           row.duplicateKind = null;
           row.include = row.skinId === NEW ? row.newName.trim().length >= 2 : true;
         }
+      });
+      // The first card of a group of versions is a version too.
+      built.forEach((row) => {
+        if (row.variantOf !== null && built[row.variantOf].variantOf === null) built[row.variantOf].variantOf = row.variantOf;
       });
       setHeroInputs(heroGuesses);
       setRows(built);
@@ -610,6 +645,12 @@ export function AutoSplitter({
                           ))}
                         </select>
                         )}
+                        {row.unsure && row.skinId === NEW ? (
+                          <p className="text-[11px] text-rose-300">ชื่ออาจอ่านไม่ครบ ตรวจกับภาพอีกครั้ง</p>
+                        ) : null}
+                        {row.variantOf !== null && row.skinId === NEW ? (
+                          <p className="text-[11px] text-gold-soft">หลายเลเวล/หลายแบบ: แก้ชื่อใส่เลข EVO ได้ เช่น {row.newName.replace(/ \(\d+\)$/, "")} EVO IV</p>
+                        ) : null}
                         {row.skinId === NEW ? (
                           <input
                             value={row.newName}

@@ -192,10 +192,13 @@ export function AutoSplitter({
       // exists when it is close enough (so "Alri" becomes "Airi").
       const closest = (guess: string, names: string[]) => {
         let bestName = "";
-        let bestScore = 0.7;
+        let bestScore = 0.8;
         for (const name of names) {
           const score = nameSimilarity(guess, name);
-          if (score >= bestScore) {
+          // Short names are corrected only for look-alike letters (l/i, 0/o), never by
+          // adding or dropping a letter: "Ata" and "Zata" are different heroes.
+          const longEnough = Math.max(guess.length, name.length) >= 6;
+          if ((score === 1 || (score >= 0.8 && longEnough)) && score >= bestScore) {
             bestScore = score;
             bestName = name;
           }
